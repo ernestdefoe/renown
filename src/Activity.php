@@ -26,6 +26,7 @@ class Activity
         private readonly Settings $settings,
         private readonly ConnectionInterface $db,
         private readonly ExtensionManager $extensions,
+        private readonly Boosts $boosts,
     ) {
     }
 
@@ -47,7 +48,7 @@ class Activity
             return;
         }
 
-        $this->ledger->award($author, $source, (int) $post->id, 0, $this->settings->xp($source), ['tags' => $this->tagIds($discussion)]);
+        $this->ledger->award($author, $source, (int) $post->id, 0, $this->settings->xp($source), ['tags' => $this->boostTags($discussion)]);
         $this->visited($author);
     }
 
@@ -58,7 +59,7 @@ class Activity
             return;
         }
 
-        $this->ledger->award($author, 'like', (int) $post->id, (int) $liker->id, $this->settings->xp('like'), ['tags' => $this->tagIds($post->discussion)]);
+        $this->ledger->award($author, 'like', (int) $post->id, (int) $liker->id, $this->settings->xp('like'), ['tags' => $this->boostTags($post->discussion)]);
     }
 
     public function unliked(Post $post, User $liker): void
@@ -74,7 +75,7 @@ class Activity
             return;
         }
 
-        $this->ledger->award($author, 'best_answer', (int) $post->id, 0, $this->settings->xp('best_answer'), ['tags' => $this->tagIds($post->discussion)]);
+        $this->ledger->award($author, 'best_answer', (int) $post->id, 0, $this->settings->xp('best_answer'), ['tags' => $this->boostTags($post->discussion)]);
     }
 
     public function notBestAnswer(Post $post): void
@@ -90,7 +91,7 @@ class Activity
             return;
         }
 
-        $this->ledger->award($author, 'answer_upvote', (int) $post->id, $voterId, $this->settings->xp('answer_upvote'), ['tags' => $this->tagIds($post->discussion)]);
+        $this->ledger->award($author, 'answer_upvote', (int) $post->id, $voterId, $this->settings->xp('answer_upvote'), ['tags' => $this->boostTags($post->discussion)]);
     }
 
     /** The member's first visit of the (UTC) day; then their Cadence streak, if it's alive today. */
@@ -205,6 +206,22 @@ class Activity
         $excluded = $this->settings->excludedTags();
 
         return ! $excluded || ! array_intersect($excluded, $this->tagIds($discussion) ?? []);
+    }
+
+    /**
+     * The tags a boost may care about: only looked up while a boost tied to a tag is running.
+     *
+     * @return list<int>|null
+     */
+    private function boostTags(?Discussion $discussion): ?array
+    {
+        foreach ($this->boosts->running() as $boost) {
+            if ($boost['tag_id'] !== null) {
+                return $this->tagIds($discussion);
+            }
+        }
+
+        return null;
     }
 
     /** @return list<int>|null the discussion's tags, or null without Tags */
