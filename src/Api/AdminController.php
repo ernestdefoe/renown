@@ -71,7 +71,10 @@ class AdminController extends Handler
      */
     private function reset(): void
     {
+        // Stopped first, so even a Reset that outlives its lock leaves no replay to resume;
+        // and a lock long enough for a big forum's deletes.
         $this->replay->locked(function () {
+            $this->replay->stop();
             $this->rewards->revokeAll();
             $this->db->table(Ledger::TABLE)->delete();
             $this->db->table('renown_prestiges')->delete();
@@ -79,7 +82,6 @@ class AdminController extends Handler
                 'renown_xp' => 0, 'renown_lifetime_xp' => 0, 'renown_level' => 1, 'renown_prestige' => 0,
                 'renown_seen' => 0, 'renown_streak_day' => 0,
             ]);
-            $this->replay->stop();
-        });
+        }, 600);
     }
 }

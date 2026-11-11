@@ -563,7 +563,7 @@ class RenownTest extends TestCase
     public function an_icon_upload_is_judged_by_its_content(): void
     {
         $this->app();
-        $file = new \Laminas\Diactoros\UploadedFile(\Laminas\Diactoros\StreamFactory::class ? (new \Laminas\Diactoros\StreamFactory())->createStream('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>') : null, 80, UPLOAD_ERR_OK, 'icon.png', 'image/png');
+        $file = new \Laminas\Diactoros\UploadedFile((new \Laminas\Diactoros\StreamFactory())->createStream('<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'), 80, UPLOAD_ERR_OK, 'icon.png', 'image/png');
         $response = $this->send($this->request('POST', '/api/renown/icons/ranks/1', ['authenticatedAs' => 1])->withUploadedFiles(['icon' => $file]));
         $this->assertSame(422, $response->getStatusCode());
         $this->assertStringContainsString('renown_icon_type', (string) $response->getBody());
@@ -607,6 +607,181 @@ class RenownTest extends TestCase
         $this->assertSame(200, $status, json_encode($body));
         $this->assertSame(20, $this->xp(self::CY, 'discussion'));
         $this->assertSame(0, $this->xp(self::CY, 'visit'), 'an approval is not the author visiting');
+    }
+
+    // ---------------------------------------------------------------- second review
+
+    #[Test]
+    public function hiding_a_post_frees_no_room_under_the_daily_cap(): void
+    {
+        $this->set('cap_daily', 25);
+        $this->app();
+        // A second discussion to earn in (fixtures added after setUp's are dropped: insert directly).
+        $this->database()->table('discussions')->insert(['id' => 3, 'title' => 'Elsewhere', 'slug' => 'elsewhere', 'user_id' => self::AVA, 'created_at' => Carbon::now()->subDay(), 'comment_count' => 1, 'last_post_number' => 1, 'is_private' => 0]);
+        $this->database()->table('posts')->insert(['id' => 3, 'discussion_id' => 3, 'user_id' => self::AVA, 'type' => 'comment', 'number' => 1, 'content' => '<t><p>Somewhere else.</p></t>', 'created_at' => Carbon::now()->subDay(), 'is_private' => 0]);
+        $this->database()->table('discussions')->where('id', 3)->update(['first_post_id' => 3]);
+        $a = $this->reply(self::BO);
+        $this->reply(self::BO); // 5 visit + 10 + 10 = the cap of 25
+
+        // Hide your own post, earn elsewhere, restore it.
+        $hide = fn (int $id, bool $hidden) => $this->api('PATCH', '/posts/'.$id, self::MO, ['data' => ['type' => 'posts', 'id' => (string) $id, 'attributes' => ['isHidden' => $hidden]]]);
+        $hide($a, true);
+        Carbon::setTestNow(Carbon::now()->addMinutes(2));
+        [$status] = $this->api('POST', '/posts', self::BO, ['data' => ['type' => 'posts', 'attributes' => ['content' => 'And here is a long enough reply in another discussion.'], 'relationships' => ['discussion' => ['data' => ['type' => 'discussions', 'id' => '3']]]]]);
+        $this->assertSame(201, $status);
+        $hide($a, false);
+
+        $this->assertLessThanOrEqual(25, (int) $this->database()->table(Ledger::TABLE)->where('user_id', self::BO)->where('day', Curve::day())->whereNull('revoked_at')->sum('xp'));
+        $this->assertSame(25, (int) $this->user(self::BO)->renown_xp);
+    }
+
+    #[Test]
+    public function reset_stops_a_running_replay_for_good(): void
+    {
+        $replay = $this->app()->getContainer()->make(Replay::class);
+        $this->reply(self::BO);
+        $replay->request(true);
+
+        [$status, $body] = $this->api('POST', '/renown/admin', 1, ['action' => 'reset']);
+        $this->assertSame(200, $status, json_encode($body));
+        $replay->run(10);
+
+        $this->assertFalse($replay->pending());
+        $this->assertSame(0, $this->database()->table(Ledger::TABLE)->count());
+        $this->assertSame(0, (int) $this->user(self::BO)->renown_xp);
+    }
+
+    #[Test]
+    public function the_replay_lock_is_released_when_a_change_fails(): void
+    {
+        $replay = $this->app()->getContainer()->make(Replay::class);
+        try {
+            $replay->locked(fn () => throw new \RuntimeException('boom'));
+        } catch (\RuntimeException) {
+        }
+        $started = microtime(true);
+        $replay->request();
+        $this->assertLessThan(2, microtime(true) - $started, 'the lock was free again');
+        $this->assertTrue($replay->pending());
+    }
+
+    #[Test]
+    public function a_group_the_member_already_had_is_never_taken_away(): void
+    {
+        $this->prepareDatabase([
+            Group::class => [['id' => 10, 'name_singular' => 'Regular', 'name_plural' => 'Regulars', 'is_hidden' => 0]],
+            'group_user' => [['user_id' => self::BO, 'group_id' => 10]],
+        ]);
+        $ranks = array_fill(0, 20, ['name' => '', 'group' => null, 'permanent' => false]);
+        $ranks[1] = ['name' => '', 'group' => 10, 'permanent' => false];
+        $this->set('ranks', json_encode($ranks));
+        $c = $this->app()->getContainer();
+        $bo = User::query()->find(self::BO);
+        $admin = User::query()->find(1);
+
+        $c->make(Ledger::class)->adjust($bo, Curve::xpFor(6), $admin, 'Rank 2');
+        $c->make(Ledger::class)->adjust($bo, -Curve::xpFor(6), $admin, 'Back');
+        $this->assertTrue($this->database()->table('group_user')->where('user_id', self::BO)->where('group_id', 10)->exists());
+    }
+
+    #[Test]
+    public function a_reward_group_an_admin_removed_by_hand_is_not_given_back(): void
+    {
+        $this->prepareDatabase([Group::class => [['id' => 10, 'name_singular' => 'Regular', 'name_plural' => 'Regulars', 'is_hidden' => 0]]]);
+        $ranks = array_fill(0, 20, ['name' => '', 'group' => null, 'permanent' => false]);
+        $ranks[1] = ['name' => '', 'group' => 10, 'permanent' => false];
+        $this->set('ranks', json_encode($ranks));
+        $c = $this->app()->getContainer();
+        $bo = User::query()->find(self::BO);
+        $admin = User::query()->find(1);
+        $c->make(Ledger::class)->adjust($bo, Curve::xpFor(6), $admin, 'Rank 2');
+        $this->database()->table('group_user')->where('user_id', self::BO)->where('group_id', 10)->delete();
+
+        $c->make(Ledger::class)->adjust($bo, Curve::xpFor(11), $admin, 'Rank 3');
+        $this->assertFalse($this->database()->table('group_user')->where('user_id', self::BO)->where('group_id', 10)->exists());
+    }
+
+    #[Test]
+    public function staff_cannot_adjust_their_own_xp(): void
+    {
+        $this->app();
+        [$status, $body] = $this->api('POST', '/renown/users/1/adjust', 1, ['xp' => 500, 'reason' => 'Me']);
+        $this->assertSame(403, $status);
+        $this->assertSame('renown_adjust_self', $body['errors'][0]['code']);
+    }
+
+    #[Test]
+    public function prestige_and_eternal_hold_through_a_totals_pass_with_real_rows(): void
+    {
+        $c = $this->app()->getContainer();
+        $ledger = $c->make(Ledger::class);
+        $bo = User::query()->find(self::BO);
+        $admin = User::query()->find(1);
+
+        for ($tier = 1; $tier <= 21; $tier++) {
+            $ledger->adjust($bo, Curve::xpFor(100) + 50, $admin, 'Climb '.$tier);
+            [$status, $body] = $this->api('POST', '/renown/prestige', self::BO);
+            $this->assertSame(200, $status, json_encode($body));
+            $bo->refresh();
+        }
+        $ledger->adjust($bo, 700, $admin, 'Eternal earns on');
+
+        $before = $this->user(self::BO);
+        $ledger->recompute([self::BO]);
+        $after = $this->user(self::BO);
+        $this->assertSame([21, 100], [(int) $after->renown_prestige, (int) $after->renown_level]);
+        $this->assertSame((int) $before->renown_xp, (int) $after->renown_xp, 'the totals pass changes nothing');
+        $this->assertSame(Curve::xpFor(100) + 50 + 700 + (int) $this->database()->table(Ledger::TABLE)->where('user_id', self::BO)->where('source', 'visit')->where('prestige', 20)->sum('xp'), (int) $after->renown_xp);
+        $this->assertSame(21 * (Curve::xpFor(100) + 50) + 700 + $this->xp(self::BO, 'visit'), (int) $after->renown_lifetime_xp);
+    }
+
+    #[Test]
+    public function an_answers_upvote_earns_through_its_own_hook_and_a_withdrawn_one_gives_it_back(): void
+    {
+        $this->extension('flarum-tags', 'ernestdefoe-answers');
+        $this->prepareDatabase([
+            'tags' => [['id' => 1, 'name' => 'Help', 'slug' => 'help', 'position' => 0, 'answers_enabled' => 1]],
+            'discussion_tag' => [['discussion_id' => 1, 'tag_id' => 1]],
+        ]);
+        $c = $this->app()->getContainer();
+        $this->database()->table('discussions')->where('id', 1)->update(['answers_question' => 1]);
+        $answer = Post::query()->find($this->reply(self::BO));
+        $votes = $c->make(\ErnestDefoe\Answers\Votes::class);
+
+        $votes->cast($answer, User::query()->find(self::AVA), 1);
+        $this->assertSame(5, $this->xp(self::BO, 'answer_upvote'));
+
+        $votes->cast(Post::query()->find($answer->id), User::query()->find(self::AVA), 0);
+        $this->assertSame(0, $this->xp(self::BO, 'answer_upvote'));
+    }
+
+    #[Test]
+    public function kudos_earn_through_kudos_own_alert_and_a_deleted_one_gives_it_back(): void
+    {
+        $this->extension('ernestdefoe-kudos');
+        $this->prepareDatabase(['group_permission' => [
+            ['permission' => 'kudos.view', 'group_id' => Group::MEMBER_ID],
+            ['permission' => 'kudos.give', 'group_id' => Group::MEMBER_ID],
+        ]]);
+        $this->app();
+        [$status, $body] = $this->api('POST', '/kudos', self::AVA, ['receiver' => self::BO, 'note' => 'Thanks for walking me through the migration!', 'style' => 'meadow']);
+        $this->assertSame(201, $status, json_encode($body));
+        $this->assertSame(25, $this->xp(self::BO, 'kudos'));
+
+        [$status] = $this->api('DELETE', '/kudos/'.$body['card']['id'], 1);
+        $this->assertContains($status, [200, 204]);
+        $this->assertSame(0, $this->xp(self::BO, 'kudos'));
+    }
+
+    #[Test]
+    public function an_icon_claiming_huge_dimensions_is_refused_before_decoding(): void
+    {
+        $this->app();
+        // A real PNG header that says 50,000 × 50,000.
+        $png = "\x89PNG\r\n\x1a\n".pack('N', 13).'IHDR'.pack('NN', 50000, 50000)."\x08\x06\x00\x00\x00".pack('N', 0);
+        $file = new \Laminas\Diactoros\UploadedFile((new \Laminas\Diactoros\StreamFactory())->createStream($png), strlen($png), UPLOAD_ERR_OK, 'big.png', 'image/png');
+        $response = $this->send($this->request('POST', '/api/renown/icons/ranks/1', ['authenticatedAs' => 1])->withUploadedFiles(['icon' => $file]));
+        $this->assertSame(422, $response->getStatusCode());
     }
 
     // ---------------------------------------------------------------- board, profile, staff

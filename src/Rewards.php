@@ -64,6 +64,11 @@ class Rewards
             if (in_array($group, $member, true)) {
                 continue;
             }
+            // Renown gave it before and the member isn't in it now: an admin took it away by hand.
+            // Respect that; the record stays so it isn't given again.
+            if (in_array($group, $granted, true)) {
+                continue;
+            }
             if (! $this->db->table('groups')->where('id', $group)->exists()) {
                 continue;
             }
@@ -72,6 +77,7 @@ class Rewards
             $changed = true;
         }
 
+        // Only groups Renown gave and the member still holds; a group they had before is never in $granted.
         foreach (array_diff($granted, array_keys($wanted)) as $group) {
             $this->db->table('group_user')->where('user_id', $user->id)->where('group_id', $group)->delete();
             $this->db->table('renown_grants')->where('user_id', $user->id)->where('group_id', $group)->delete();

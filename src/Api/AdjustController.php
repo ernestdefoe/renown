@@ -24,6 +24,11 @@ class AdjustController extends Handler
             throw new Refusal('renown_not_found', 404);
         }
 
+        // Nobody adjusts their own XP, staff and admins included.
+        if ((int) $user->id === (int) $actor->id) {
+            throw new Refusal('renown_adjust_self', 403);
+        }
+
         $body = self::body($request);
         $xp = (int) ($body['xp'] ?? 0);
         $reason = trim((string) ($body['reason'] ?? ''));

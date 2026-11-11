@@ -348,7 +348,9 @@ class Ledger
         $multiplier = $this->boosts->multiplier($tags);
         $xp *= $multiplier;
 
-        $today = fn () => $this->db->table(self::TABLE)->where('user_id', $userId)->where('day', $day)->where('backfilled', false)->whereNull('revoked_at');
+        // Revoked rows still count: XP earned today and then hidden must not make room under the cap,
+        // or hide, earn elsewhere, restore would beat it.
+        $today = fn () => $this->db->table(self::TABLE)->where('user_id', $userId)->where('day', $day)->where('backfilled', false);
 
         if ($cooldown && in_array($source, ['reply', 'discussion'], true) && ($seconds = $this->settings->int('cooldown', 30)) > 0) {
             $recent = $today()->whereIn('source', ['reply', 'discussion'])

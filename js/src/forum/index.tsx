@@ -111,7 +111,7 @@ app.initializers.add('ernestdefoe/renown', () => {
 
   // Staff: add or remove XP by hand, with a reason.
   extend(UserControls, 'moderationControls', function (items: ItemList<any>, user: any) {
-    if (!app.forum.attribute('renownCanAdjust')) return;
+    if (!app.forum.attribute('renownCanAdjust') || user === app.session.user) return;
     items.add(
       'renownAdjust',
       Button.component(

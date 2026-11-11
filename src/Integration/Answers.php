@@ -48,6 +48,11 @@ class Answers
             $logs = $this->db->table('answers_reputation_log')->where('user_id', $event->userId)->where('reason', 'upvote')
                 ->where('created_at', '>=', Carbon::now()->subMinute())
                 ->whereNotNull('post_id')->whereNotNull('actor_id')
+                // Only votes that still stand: one withdrawn within the minute earns nothing.
+                ->whereExists(fn ($q) => $q->selectRaw('1')->from('answers_votes')
+                    ->whereColumn('answers_votes.post_id', 'answers_reputation_log.post_id')
+                    ->whereColumn('answers_votes.user_id', 'answers_reputation_log.actor_id')
+                    ->where('answers_votes.value', '>', 0))
                 ->get(['post_id', 'actor_id'])->unique(fn ($l) => $l->post_id.':'.$l->actor_id);
             foreach ($logs as $log) {
                 if ($post = Post::query()->find($log->post_id)) {

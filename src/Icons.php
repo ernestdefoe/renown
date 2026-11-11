@@ -18,6 +18,9 @@ class Icons
 
     public const MAX_BYTES = 4 * 1024 * 1024;
 
+    /** The widest and tallest image accepted, checked before it is decoded. */
+    public const MAX_PIXELS = 2048;
+
     /** The raster formats accepted, by what the file's own bytes say it is. */
     private const TYPES = [IMAGETYPE_PNG, IMAGETYPE_JPEG, IMAGETYPE_GIF, IMAGETYPE_WEBP];
 
@@ -32,7 +35,9 @@ class Icons
     {
         $info = $bytes === '' ? false : @getimagesizefromstring($bytes);
 
-        return $info !== false && in_array($info[2], self::TYPES, true) && $info[0] > 0 && $info[1] > 0;
+        // Read from the header before any decoding: a tiny file can claim enormous dimensions.
+        return $info !== false && in_array($info[2], self::TYPES, true)
+            && $info[0] > 0 && $info[1] > 0 && $info[0] <= self::MAX_PIXELS && $info[1] <= self::MAX_PIXELS;
     }
 
     /** @return string the stored file name */

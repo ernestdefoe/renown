@@ -117,9 +117,14 @@ class Replay
     public function requestTotals(): void
     {
         $this->locked(function () {
-            if (! $this->pending()) {
+            $state = $this->state();
+            if (! $state || $state['phase'] === 'done') {
                 $this->save(['phase' => 'totals', 'cursor' => 0, 'started_at' => Carbon::now()->toIso8601String()]);
+            } elseif ($state['phase'] === 'totals') {
+                // Already walking the members: start over, so new rewards reach the ones it passed.
+                $this->save(['cursor' => 0] + $state);
             }
+            // An earlier phase still has the totals ahead of it.
         });
     }
 
@@ -133,10 +138,10 @@ class Replay
      * Change the replay while no slice runs: a slice holds the lock for about
      * a second, so this waits for the one in progress, never for a whole run.
      */
-    public function locked(callable $change): mixed
+    public function locked(callable $change, int $seconds = 30): mixed
     {
         try {
-            return $this->cache->lock(self::LOCK, 30)->block(15, $change);
+            return $this->cache->lock(self::LOCK, $seconds)->block(15, $change);
         } catch (LockTimeoutException) {
             throw new Refusal('renown_replay_busy', 409);
         }
@@ -231,7 +236,8 @@ class Replay
      */
     public function boundary(): array
     {
-        $saved = json_decode((string) $this->settingsRepo->get(self::BOUNDARY), true);
+        // From the table, like state(): a cached copy must never move where history ends.
+        $saved = json_decode((string) $this->db->table('settings')->where('key', self::BOUNDARY)->value('value'), true);
         if (is_array($saved) && isset($saved['posts'], $saved['kudos'], $saved['at'])) {
             return $saved;
         }

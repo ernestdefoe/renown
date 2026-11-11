@@ -125,10 +125,11 @@ ernestdefoe-renown:
       renown_not_found: That member can't be found.
       renown_adjust_amount: Enter an amount of XP other than 0.
       renown_adjust_reason: Give a reason.
+      renown_adjust_self: You can't adjust your own XP.
       renown_boost_dates: The event needs an end after its start, in the future, and at most 31 days long.
       renown_boost_multiplier: The multiplier is 2 or 3.
       renown_icon_missing: Choose an image.
-      renown_icon_type: That file isn't a PNG, JPG, WebP or GIF image.
+      renown_icon_type: "That file isn't a PNG, JPG, WebP or GIF image of up to 2048 × 2048 pixels."
       renown_icon_too_large: That image is too large. Upload one under 4 MB.
       renown_replay_busy: The history replay is mid-step. Try again in a moment.
       renown_unknown_action: That action isn't known.
@@ -159,7 +160,7 @@ ernestdefoe-renown:
       ernestdefoe-answers: Answers
     status:
       heading: Status
-      replay_help: "When Renown is installed, every member gets the XP their past activity earned: no daily caps or cooldowns apply to history, only to activity after install. Nobody is moved into Prestige automatically: a member whose history is worth more than Level 100 sits at Level 100 (the top rank) with the extra XP banked, and Prestige is ready for them to take. The replay runs in the background (the scheduler, this page while it's open, or php flarum renown:rebuild)."
+      replay_help: "When Renown is installed, every member gets the XP their past activity earned: no daily caps or cooldowns apply to history, only to activity after install. Nobody is moved into Prestige automatically: a member whose history is worth more than Level 100 sits at Level 100 (the top rank) with the extra XP banked, and Prestige is ready for them to take. The replay runs in the background (the scheduler, this page while it's open, or php flarum renown:rebuild). History means everything before Renown was installed: replaying it again never pays twice for activity since then, and posts that are hidden at the time earn nothing."
       replaying: "Replaying history: {progress}%"
       replayed: History replayed. New activity earns XP as it happens.
       members: members with XP
@@ -168,8 +169,8 @@ ernestdefoe-renown:
       rebuild: Replay history again
       reset: Reset everyone to zero
       failed: That didn't work. Reload the page and try again.
-      confirm_rebuild: "Replay history again with the XP values saved now? XP earned since install stays, and so does every Prestige."
-      confirm_reset: "Reset everyone to Level 1 with no XP, no Prestige and no emblems? This can't be undone, and history is not replayed."
+      confirm_rebuild: "Replay history again with the XP values saved now? XP earned since install stays, and so does every Prestige. Posts hidden right now earn nothing until they're restored."
+      confirm_reset: "Reset everyone to Level 1 with no XP, no Prestige and no emblems? This can't be undone, and history is not replayed. Replaying it afterwards only gives back what was earned before Renown was installed."
     sources:
       heading: XP for each action
       help: How much XP each action earns. 0 turns it off. Sources from other extensions appear when that extension is enabled.

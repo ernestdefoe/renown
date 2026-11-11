@@ -130,7 +130,12 @@ return [
         // Changed rewards apply to everyone: the totals step of the replay walks every member.
         ->listen(SettingsSaved::class, function (SettingsSaved $event) {
             if (array_intersect(['ernestdefoe-renown.ranks', 'ernestdefoe-renown.tiers'], array_keys($event->settings))) {
-                resolve(Replay::class)->requestTotals();
+                // Never a failed settings save over it: if the replay is busy, the next save (or a
+                // Rebuild) applies the rewards.
+                try {
+                    resolve(Replay::class)->requestTotals();
+                } catch (\ErnestDefoe\Renown\Refusal) {
+                }
             }
         }),
 
