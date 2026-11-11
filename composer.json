@@ -1,0 +1,97 @@
+{
+    "name": "ernestdefoe/renown",
+    "description": "Renown: members earn XP by taking part and climb 100 levels across 20 ranks, each with its own insignia. At Level 100 they may take Prestige, twenty celestial tiers and then Eternal. Rank beside every post, rank-up toasts, a leaderboard and a Renown tab on profiles.",
+    "keywords": [
+        "flarum",
+        "flarum-extension",
+        "xp",
+        "levels",
+        "ranks",
+        "prestige",
+        "gamification",
+        "leaderboard"
+    ],
+    "type": "flarum-extension",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Ernest Defoe",
+            "email": "ernestdefoe@gmail.com"
+        }
+    ],
+    "homepage": "https://github.com/ernestdefoe/renown",
+    "support": {
+        "issues": "https://github.com/ernestdefoe/renown/issues",
+        "source": "https://github.com/ernestdefoe/renown"
+    },
+    "funding": [
+        {
+            "type": "other",
+            "url": "https://buymeacoffee.com/ernestdefoe"
+        }
+    ],
+    "require": {
+        "php": "^8.3",
+        "flarum/core": "^2.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "ErnestDefoe\\Renown\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "ErnestDefoe\\Renown\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "flarum-extension": {
+            "title": "Renown",
+            "category": "feature",
+            "icon": {
+                "name": "fas fa-medal",
+                "backgroundColor": "#b8860b",
+                "color": "#fff"
+            },
+            "optional-dependencies": [
+                "flarum/tags",
+                "flarum/likes",
+                "flarum/approval",
+                "flarum/gdpr",
+                "fof/badges",
+                "fof/best-answer",
+                "fof/byobu",
+                "ernestdefoe/answers",
+                "ernestdefoe/kudos",
+                "ernestdefoe/cadence",
+                "ernestdefoe/buzz"
+            ]
+        }
+    },
+    "require-dev": {
+        "flarum/gdpr": "^2.0",
+        "flarum/likes": "^2.0",
+        "flarum/phpstan": "^2.0",
+        "flarum/tags": "^2.0",
+        "flarum/testing": "^2.0"
+    },
+    "scripts": {
+        "test": [
+            "@test:integration"
+        ],
+        "test:integration": "phpunit -c tests/phpunit.integration.xml",
+        "test:setup": "@php tests/integration/setup.php",
+        "analyse:phpstan": "phpstan analyse"
+    },
+    "scripts-descriptions": {
+        "test": "Runs all tests.",
+        "test:integration": "Runs all integration tests.",
+        "test:setup": "Sets up a database for use with integration tests. Execute this only once.",
+        "analyse:phpstan": "Run static analysis"
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "minimum-stability": "beta",
+    "prefer-stable": true
+}

@@ -1,0 +1,29 @@
+// Shared by the forum and the admin page: the insignia and emblems.
+.RenownInsignia,
+.RenownEmblem {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  vertical-align: middle;
+  line-height: 0;
+
+  svg,
+  img {
+    display: block;
+    flex: none;
+  }
+  img {
+    object-fit: contain;
+  }
+}
+.RenownInsignia-grade {
+  display: flex;
+  gap: 3px;
+}
+.RenownInsignia-pip {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--control-bg);
+}
