@@ -4,6 +4,7 @@ namespace ErnestDefoe\Renown\Api;
 
 use ErnestDefoe\Renown\Refusal;
 use Flarum\Http\RequestUtil;
+use Flarum\Locale\TranslatorInterface;
 use Flarum\User\User;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -25,7 +26,11 @@ abstract class Handler implements RequestHandlerInterface
         try {
             return $this->respond($request, $actor);
         } catch (Refusal $refusal) {
-            return Errors::make($refusal->status, $refusal->reason);
+            // The sentence too, for screens that show the API's message as it is (the admin page).
+            $key = 'ernestdefoe-renown.forum.errors.'.$refusal->reason;
+            $detail = resolve(TranslatorInterface::class)->trans($key);
+
+            return Errors::make($refusal->status, $refusal->reason, $detail !== $key ? $detail : null);
         }
     }
 

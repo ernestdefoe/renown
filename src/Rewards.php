@@ -83,6 +83,15 @@ class Rewards
         }
     }
 
+    /** Take back the groups Renown gave one member (their data erased). */
+    public function revokeFor(int $userId): void
+    {
+        foreach ($this->db->table('renown_grants')->where('user_id', $userId)->pluck('group_id') as $group) {
+            $this->db->table('group_user')->where('user_id', $userId)->where('group_id', $group)->delete();
+        }
+        $this->db->table('renown_grants')->where('user_id', $userId)->delete();
+    }
+
     /** Take back every group Renown gave (a reset). */
     public function revokeAll(): void
     {

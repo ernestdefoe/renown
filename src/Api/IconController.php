@@ -40,14 +40,23 @@ class IconController extends Handler
             $url = null;
         } else {
             $file = $request->getUploadedFiles()['icon'] ?? null;
+            if ($file && in_array($file->getError(), [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true)) {
+                throw new Refusal('renown_icon_too_large');
+            }
             if (! $file || $file->getError() !== UPLOAD_ERR_OK) {
                 throw new Refusal('renown_icon_missing');
             }
-            if ($file->getSize() > Icons::MAX_BYTES || ! in_array($file->getClientMediaType(), Icons::ALLOWED, true)) {
+            if ($file->getSize() > Icons::MAX_BYTES) {
+                throw new Refusal('renown_icon_too_large');
+            }
+            // Judged by its content, never the type the browser claims: only real PNG, JPEG, GIF
+            // and WebP images reach the image library (no SVG, no HTML with an image name).
+            $bytes = (string) $file->getStream();
+            if (! Icons::isRaster($bytes)) {
                 throw new Refusal('renown_icon_type');
             }
             try {
-                $name = $this->icons->put($kind, $step, $file);
+                $name = $this->icons->put($kind, $step, $bytes);
             } catch (\Throwable) {
                 throw new Refusal('renown_icon_type');
             }

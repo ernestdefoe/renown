@@ -6,7 +6,9 @@ use ErnestDefoe\Renown\Curve;
 use ErnestDefoe\Renown\Event\LevelChanged;
 use ErnestDefoe\Renown\Event\PrestigeTaken;
 use ErnestDefoe\Renown\Ranks;
+use Flarum\Http\SlugManager;
 use Flarum\Locale\TranslatorInterface;
+use Flarum\User\User;
 
 /**
  * ernestdefoe/buzz: "Ana reached Veteran" (a new rank, off by default: it's
@@ -27,15 +29,20 @@ class Buzz
         }
 
         resolve(\Ernestdefoe\Buzz\Recorder::class)->record('renown.rank', $event->user, ['rank' => $this->name('ranks', $rank)], [
-            'route' => ['name' => 'user.renown', 'params' => ['username' => $event->user->username]],
+            'route' => ['name' => 'user.renown', 'params' => ['username' => $this->slug($event->user)]],
         ]);
     }
 
     public function prestige(PrestigeTaken $event): void
     {
         resolve(\Ernestdefoe\Buzz\Recorder::class)->record('renown.prestige', $event->user, ['tier' => $this->name('tiers', $event->tier)], [
-            'route' => ['name' => 'user.renown', 'params' => ['username' => $event->user->username]],
+            'route' => ['name' => 'user.renown', 'params' => ['username' => $this->slug($event->user)]],
         ]);
+    }
+
+    private function slug(User $user): string
+    {
+        return resolve(SlugManager::class)->forResource(User::class)->toSlug($user);
     }
 
     private function name(string $kind, int $step): string

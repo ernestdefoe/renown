@@ -42,7 +42,7 @@ class ProfileController extends Handler
             ->where('renown_lifetime_xp', '>', 0)
             ->where(fn ($q) => $q->where('renown_prestige', '>', $prestige)
                 ->orWhere(fn ($q) => $q->where('renown_prestige', $prestige)->where('renown_xp', '>', $xp))
-                ->orWhere(fn ($q) => $q->where('renown_prestige', $prestige)->where('renown_xp', $xp)->where('id', '<', $id)))
+                ->orWhere(fn ($q) => $q->where('renown_prestige', $prestige)->where('renown_xp', $xp)->where('id', '>', $id)))
             ->count();
 
         $emblems = $this->db->table('renown_prestiges')->where('user_id', $id)->orderBy('tier')->get(['tier', 'reached_at'])

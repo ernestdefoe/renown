@@ -5,6 +5,7 @@ namespace ErnestDefoe\Renown\Api;
 use ErnestDefoe\Renown\Prestige;
 use ErnestDefoe\Renown\Refusal;
 use Flarum\User\User;
+use Illuminate\Contracts\Cache\Repository as Cache;
 use Illuminate\Database\ConnectionInterface;
 use Laminas\Diactoros\Response\JsonResponse;
 use Psr\Http\Message\ResponseInterface;
@@ -17,7 +18,7 @@ use Psr\Http\Message\ServerRequestInterface;
  */
 class MeController extends Handler
 {
-    public function __construct(private readonly Prestige $prestige, private readonly ConnectionInterface $db)
+    public function __construct(private readonly Prestige $prestige, private readonly ConnectionInterface $db, private readonly Cache $cache)
     {
     }
 
@@ -36,6 +37,7 @@ class MeController extends Handler
         } else {
             $hidden = (bool) (self::body($request)['hidden'] ?? false);
             $this->db->table('users')->where('id', $actor->id)->update(['renown_hidden' => $hidden]);
+            $this->cache->forever(BoardController::VERSION, (int) $this->cache->get(BoardController::VERSION, 0) + 1);
             $actor->setAttribute('renown_hidden', $hidden);
         }
 

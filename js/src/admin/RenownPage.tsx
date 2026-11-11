@@ -91,8 +91,13 @@ export default class RenownPage extends ExtensionPage {
   }
 
   load(action?: string) {
+    const errorHandler = (error: any) => {
+      this.busy = false;
+      if (action !== 'run') app.alerts.show({ type: 'error' }, error?.response?.errors?.[0]?.detail || tx('status.failed'));
+      throw error;
+    };
     const req = action
-      ? app.request<{ data: State }>({ method: 'POST', url: app.forum.attribute('apiUrl') + '/renown/admin', body: { action } })
+      ? app.request<{ data: State }>({ method: 'POST', url: app.forum.attribute('apiUrl') + '/renown/admin', body: { action }, errorHandler })
       : app.request<{ data: State }>({ method: 'GET', url: app.forum.attribute('apiUrl') + '/renown/admin' });
     return req.then((res) => {
       this.state = res.data;
@@ -193,7 +198,7 @@ export default class RenownPage extends ExtensionPage {
   act(action: 'rebuild' | 'reset') {
     if (!confirm(tx('status.confirm_' + action))) return;
     this.busy = true;
-    this.load(action);
+    this.load(action).catch(() => m.redraw());
   }
 
   sourcesSection() {
@@ -441,12 +446,20 @@ export default class RenownPage extends ExtensionPage {
         url: `${app.forum.attribute('apiUrl')}/renown/icons/${kind}/${step}`,
         serialize: (raw: any) => raw,
         body,
+        // The server says what was wrong (not an image, too large): show that sentence, once.
+        errorHandler: (error: any) => {
+          app.alerts.show({ type: 'error' }, error?.response?.errors?.[0]?.detail || tx('ranks.icon_failed'));
+          throw error;
+        },
       })
-      .then((res) => {
-        this.icons[kind][step] = res.data.url;
-        input.value = '';
-        m.redraw();
-      });
+      .then(
+        (res) => {
+          this.icons[kind][step] = res.data.url;
+          m.redraw();
+        },
+        () => {}
+      )
+      .finally(() => (input.value = ''));
   }
 
   removeIcon(kind: 'ranks' | 'tiers', step: number) {

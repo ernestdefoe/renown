@@ -5,7 +5,6 @@ namespace ErnestDefoe\Renown;
 use Illuminate\Contracts\Filesystem\Cloud;
 use Illuminate\Contracts\Filesystem\Factory;
 use Intervention\Image\ImageManager;
-use Psr\Http\Message\UploadedFileInterface;
 
 /**
  * Uploaded icons for ranks and prestige tiers, on the `flarum-assets` disk
@@ -19,7 +18,8 @@ class Icons
 
     public const MAX_BYTES = 4 * 1024 * 1024;
 
-    public const ALLOWED = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+    /** The raster formats accepted, by what the file's own bytes say it is. */
+    private const TYPES = [IMAGETYPE_PNG, IMAGETYPE_JPEG, IMAGETYPE_GIF, IMAGETYPE_WEBP];
 
     private Cloud $disk;
 
@@ -28,11 +28,18 @@ class Icons
         $this->disk = $filesystem->disk('flarum-assets');
     }
 
+    public static function isRaster(string $bytes): bool
+    {
+        $info = $bytes === '' ? false : @getimagesizefromstring($bytes);
+
+        return $info !== false && in_array($info[2], self::TYPES, true) && $info[0] > 0 && $info[1] > 0;
+    }
+
     /** @return string the stored file name */
-    public function put(string $kind, int $step, UploadedFileInterface $file): string
+    public function put(string $kind, int $step, string $bytes): string
     {
         $encoded = (string) $this->images
-            ->read($file->getStream()->getContents())
+            ->read($bytes)
             ->scaleDown(width: self::SIZE, height: self::SIZE)
             ->toWebp(85);
 

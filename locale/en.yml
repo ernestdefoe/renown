@@ -128,7 +128,9 @@ ernestdefoe-renown:
       renown_boost_dates: The event needs an end after its start, in the future, and at most 31 days long.
       renown_boost_multiplier: The multiplier is 2 or 3.
       renown_icon_missing: Choose an image.
-      renown_icon_type: Upload a PNG, JPG, WebP or GIF under 4 MB.
+      renown_icon_type: That file isn't a PNG, JPG, WebP or GIF image.
+      renown_icon_too_large: That image is too large. Upload one under 4 MB.
+      renown_replay_busy: The history replay is mid-step. Try again in a moment.
       renown_unknown_action: That action isn't known.
     adjust:
       control: Adjust Renown XP
@@ -165,6 +167,7 @@ ernestdefoe-renown:
       prestiged: have taken Prestige
       rebuild: Replay history again
       reset: Reset everyone to zero
+      failed: That didn't work. Reload the page and try again.
       confirm_rebuild: "Replay history again with the XP values saved now? XP earned since install stays, and so does every Prestige."
       confirm_reset: "Reset everyone to Level 1 with no XP, no Prestige and no emblems? This can't be undone, and history is not replayed."
     sources:
@@ -204,7 +207,6 @@ ernestdefoe-renown:
       icon: Icon
       upload: Upload an icon
       remove_icon: Remove the icon
-      icon_type: Upload a PNG, JPG, WebP or GIF under 4 MB.
       icon_failed: The icon couldn't be saved. Try again.
       reward: Group reward
       no_group: No group

@@ -43,7 +43,10 @@ class Activity
         $source = $first ? 'discussion' : 'reply';
 
         if ($first || mb_strlen(self::ownWords((string) $post->content)) >= $this->settings->int('min_length', 20)) {
-            $this->ledger->award($author, $source, (int) $post->id, 0, $this->settings->xp($source), ['tags' => $this->boostTags($discussion)]);
+            // An approved post counts on the day it was written, and a moderator approving a batch
+            // at once is no reason for a cooldown.
+            $options = $visit ? [] : ['at' => $post->created_at, 'cooldown' => false];
+            $this->ledger->award($author, $source, (int) $post->id, 0, $this->settings->xp($source), ['tags' => $this->boostTags($discussion)] + $options);
         }
         if ($visit) {
             $this->visited($author);

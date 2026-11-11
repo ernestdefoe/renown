@@ -3,6 +3,7 @@
 namespace ErnestDefoe\Renown\Gdpr;
 
 use ErnestDefoe\Renown\Ledger;
+use ErnestDefoe\Renown\Rewards;
 use Flarum\Gdpr\Data\Type;
 
 /**
@@ -53,6 +54,10 @@ class RenownData extends Type
         $db = resolve('db');
         $db->table(Ledger::TABLE)->where('user_id', $this->user->id)->delete();
         $db->table('renown_prestiges')->where('user_id', $this->user->id)->delete();
-        $db->table('renown_grants')->where('user_id', $this->user->id)->delete();
+        // The groups Renown gave go with the rows that recorded them; the member is back at Level 1.
+        resolve(Rewards::class)->revokeFor((int) $this->user->id);
+        $db->table('users')->where('id', $this->user->id)->update([
+            'renown_xp' => 0, 'renown_lifetime_xp' => 0, 'renown_level' => 1, 'renown_prestige' => 0, 'renown_seen' => 0, 'renown_hidden' => false,
+        ]);
     }
 }

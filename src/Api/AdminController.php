@@ -63,16 +63,23 @@ class AdminController extends Handler
         ]]);
     }
 
-    /** Everyone back to Newcomer I with nothing earned. History is NOT replayed (Rebuild does that). */
+    /**
+     * Everyone back to Level 1 with nothing earned. History is NOT replayed
+     * (Rebuild does that). Under the replay's lock, so a running replay can't
+     * write over it, and the "done" state goes through the settings
+     * repository, so caches (fof/redis) see it.
+     */
     private function reset(): void
     {
-        $this->rewards->revokeAll();
-        $this->db->table(Ledger::TABLE)->delete();
-        $this->db->table('renown_prestiges')->delete();
-        $this->db->table('users')->update([
-            'renown_xp' => 0, 'renown_lifetime_xp' => 0, 'renown_level' => 1, 'renown_prestige' => 0,
-            'renown_seen' => 0, 'renown_streak_day' => 0,
-        ]);
-        $this->db->table('settings')->updateOrInsert(['key' => Replay::KEY], ['value' => json_encode(['phase' => 'done', 'cursor' => 0])]);
+        $this->replay->locked(function () {
+            $this->rewards->revokeAll();
+            $this->db->table(Ledger::TABLE)->delete();
+            $this->db->table('renown_prestiges')->delete();
+            $this->db->table('users')->update([
+                'renown_xp' => 0, 'renown_lifetime_xp' => 0, 'renown_level' => 1, 'renown_prestige' => 0,
+                'renown_seen' => 0, 'renown_streak_day' => 0,
+            ]);
+            $this->replay->stop();
+        });
     }
 }

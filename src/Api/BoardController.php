@@ -22,6 +22,9 @@ class BoardController extends Handler
 {
     public const PER_PAGE = 25;
 
+    /** Bumped when a member leaves or rejoins the board, so guests never see them a minute late. */
+    public const VERSION = 'ernestdefoe-renown.board.version';
+
     public function __construct(private readonly ConnectionInterface $db, private readonly Cache $cache)
     {
     }
@@ -54,12 +57,16 @@ class BoardController extends Handler
             }
             $slice = array_slice($rows, $offset, self::PER_PAGE + 1);
         } else {
-            $slice = User::query()->whereVisibleTo($actor)
+            // All one direction, so the (prestige, XP) index (which carries the id) serves the whole
+            // order. Guests all see the same board: cached a minute.
+            $query = fn () => User::query()->whereVisibleTo($actor)
                 ->where('renown_hidden', false)
                 ->where('renown_lifetime_xp', '>', 0)
-                ->orderByDesc('renown_prestige')->orderByDesc('renown_xp')->orderBy('id')
+                ->orderByDesc('renown_prestige')->orderByDesc('renown_xp')->orderByDesc('id')
                 ->offset($offset)->limit(self::PER_PAGE + 1)
                 ->get()->map(fn (User $user) => Presenter::user($user))->all();
+            $version = (int) $this->cache->get(self::VERSION, 0);
+            $slice = $actor->isGuest() ? $this->cache->remember('ernestdefoe-renown.board.guest.'.$version.'.'.$page, 60, $query) : $query();
         }
 
         $more = count($slice) > self::PER_PAGE;

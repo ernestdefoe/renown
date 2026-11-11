@@ -6,6 +6,7 @@ use Carbon\Carbon;
 use Flarum\Extension\ExtensionManager;
 use Flarum\Settings\SettingsRepositoryInterface;
 use Flarum\User\User;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Contracts\Cache\Repository as Cache;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Database\Query\Builder;
@@ -33,10 +34,19 @@ class Replay
     /** Where history ends and live activity begins: set at install, never moved. */
     public const BOUNDARY = 'ernestdefoe-renown.boundary';
 
-    private const PHASES = ['posts', 'kudos', 'streaks', 'totals'];
+    private const PHASES = ['clear', 'posts', 'kudos', 'streaks', 'totals'];
 
     /** How much of the bar each phase fills. */
-    private const WEIGHTS = ['posts' => 70, 'kudos' => 5, 'streaks' => 5, 'totals' => 20];
+    private const WEIGHTS = ['clear' => 5, 'posts' => 65, 'kudos' => 5, 'streaks' => 5, 'totals' => 20];
+
+    /**
+     * Slice sizes: where each phase starts and the most it grows to, so a
+     * slice stays well inside memory, a second or so of work, and SQLite's
+     * 32,766 bound parameters (inserts go 500 rows at a time).
+     */
+    private const SPANS = ['clear' => [5000, 20000], 'posts' => [2000, 5000], 'kudos' => [2000, 5000], 'streaks' => [1000, 5000], 'totals' => [200, 1000]];
+
+    private const LOCK = 'ernestdefoe-renown.replay-lock';
 
     /** @var array<string, bool> */
     private array $columns = [];
@@ -55,7 +65,9 @@ class Replay
     /** @return array{phase: string, cursor: int, span?: int, max?: int, started_at?: string, finished_at?: string}|null */
     public function state(): ?array
     {
-        $state = json_decode((string) $this->settingsRepo->get(self::KEY), true);
+        // Straight from the table: the settings repository caches in memory (and in Redis with
+        // fof/redis), and a long run must see a Rebuild or Reset saved by another request.
+        $state = json_decode((string) $this->db->table('settings')->where('key', self::KEY)->value('value'), true);
 
         return is_array($state) && isset($state['phase']) ? $state : null;
     }
@@ -93,40 +105,62 @@ class Replay
 
     /**
      * Start again from the beginning. Fresh: the rows earlier replays wrote go
-     * first, so changed XP values apply to history too (live XP stays).
+     * first (in slices, as the replay's first phase), so changed XP values
+     * apply to history too. Live XP always stays.
      */
     public function request(bool $fresh = false): void
     {
-        if ($fresh) {
-            // The Cadence lump stays: Cadence counts days, not each day, so it can't be told apart again.
-            $this->db->table(Ledger::TABLE)->where('backfilled', true)->where(fn ($q) => $q->where('source', '<>', 'streak')->orWhere('subject_id', '>', 0))->delete();
-        }
-        $this->save(['phase' => 'posts', 'cursor' => 0, 'started_at' => Carbon::now()->toIso8601String()]);
+        $this->locked(fn () => $this->save(['phase' => $fresh ? 'clear' : 'posts', 'cursor' => 0, 'started_at' => Carbon::now()->toIso8601String()]));
     }
 
     /** Only the totals and group rewards again (after rewards change). */
     public function requestTotals(): void
     {
-        if (! $this->pending()) {
-            $this->save(['phase' => 'totals', 'cursor' => 0, 'started_at' => Carbon::now()->toIso8601String()]);
+        $this->locked(function () {
+            if (! $this->pending()) {
+                $this->save(['phase' => 'totals', 'cursor' => 0, 'started_at' => Carbon::now()->toIso8601String()]);
+            }
+        });
+    }
+
+    /** No replay to run (after a reset). */
+    public function stop(): void
+    {
+        $this->save(['phase' => 'done', 'cursor' => 0, 'finished_at' => Carbon::now()->toIso8601String()]);
+    }
+
+    /**
+     * Change the replay while no slice runs: a slice holds the lock for about
+     * a second, so this waits for the one in progress, never for a whole run.
+     */
+    public function locked(callable $change): mixed
+    {
+        try {
+            return $this->cache->lock(self::LOCK, 30)->block(15, $change);
+        } catch (LockTimeoutException) {
+            throw new Refusal('renown_replay_busy', 409);
         }
     }
 
-    /** Work for about $seconds, then stop where it got to. */
+    /** Work for about $seconds, a slice at a time, then stop where it got to. */
     public function run(float $seconds): void
     {
-        $lock = $this->cache->lock('ernestdefoe-renown.replay-lock', 120);
-        if (! $lock->get()) {
-            return;
-        }
-
-        try {
-            $until = microtime(true) + $seconds;
-            while (($state = $this->state()) && $state['phase'] !== 'done' && microtime(true) < $until) {
-                $this->save($this->step($state));
+        $until = microtime(true) + $seconds;
+        while (microtime(true) < $until) {
+            $lock = $this->cache->lock(self::LOCK, 30);
+            if (! $lock->get()) {
+                return;
             }
-        } finally {
-            $lock->release();
+            try {
+                // Read under the lock: a Rebuild or Reset saved meanwhile wins, never this run's old state.
+                $state = $this->state();
+                if (! $state || $state['phase'] === 'done') {
+                    return;
+                }
+                $this->save($this->step($state));
+            } finally {
+                $lock->release();
+            }
         }
     }
 
@@ -143,7 +177,7 @@ class Replay
         $phase = $state['phase'];
         if (! isset($state['max'])) {
             $state['max'] = $this->max($phase);
-            $state['span'] = $phase === 'totals' ? 200 : 2000;
+            $state['span'] = self::SPANS[$phase][0];
         }
 
         $from = (int) $state['cursor'];
@@ -153,6 +187,7 @@ class Replay
 
         if ($from < $state['max']) {
             match ($phase) {
+                'clear' => $this->clear($from, $to),
                 'posts' => $this->posts($from, $to),
                 'kudos' => $this->kudos($from, $to),
                 'streaks' => $this->streaks($from, $to),
@@ -162,7 +197,7 @@ class Replay
 
         $took = microtime(true) - $started;
         $span = (int) $state['span'];
-        $span = $took < 0.3 ? min($span * 2, 50000) : ($took > 1.5 ? max(50, intdiv($span, 2)) : $span);
+        $span = $took < 0.3 ? min($span * 2, self::SPANS[$phase][1]) : ($took > 1.5 ? max(50, intdiv($span, 2)) : $span);
 
         if ($to >= $state['max']) {
             $next = self::PHASES[array_search($phase, self::PHASES, true) + 1] ?? null;
@@ -180,6 +215,7 @@ class Replay
         $boundary = $this->boundary();
 
         return (int) match ($phase) {
+            'clear' => $this->db->table(Ledger::TABLE)->max('id'),
             'posts' => $boundary['posts'],
             'kudos' => $boundary['kudos'],
             default => $this->db->table('users')->max('id'),
@@ -214,6 +250,14 @@ class Replay
             'kudos' => $kudos && $db->getSchemaBuilder()->hasTable('kudos') ? (int) $db->table('kudos')->max('id') : 0,
             'at' => Carbon::now()->toDateTimeString(),
         ];
+    }
+
+    /** A fresh rebuild: earlier replays' rows go, by id range. The Cadence lump stays (Cadence counts days, not each day). */
+    private function clear(int $from, int $to): void
+    {
+        $this->db->table(Ledger::TABLE)->where('id', '>', $from)->where('id', '<=', $to)->where('backfilled', true)
+            ->where(fn ($q) => $q->where('source', '<>', 'streak')->orWhere('subject_id', '>', 0))
+            ->delete();
     }
 
     /** Posts and what they earned: replies, discussions, likes, best answers, Answers upvotes, and the days posted. */
@@ -392,7 +436,7 @@ class Replay
     }
 
     /** @param array<string, mixed> $state */
-    private function save(array $state): void
+    public function save(array $state): void
     {
         $this->settingsRepo->set(self::KEY, json_encode(array_filter($state, fn ($v) => $v !== null)));
     }

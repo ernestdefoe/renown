@@ -44,7 +44,7 @@ class Ledger
      * `backfilled` (true: never counts toward a day's caps), `at`, `note`,
      * `tags` (the discussion's tags, for tag boosts), `quiet`.
      *
-     * @param array{capped?: bool, backfilled?: bool, at?: \DateTimeInterface, note?: ?string, tags?: list<int>|null, quiet?: bool} $options
+     * @param array{capped?: bool, backfilled?: bool, at?: \DateTimeInterface, note?: ?string, tags?: list<int>|null, quiet?: bool, cooldown?: bool} $options
      * @return int the XP actually given (0 when capped out or already given)
      */
     public function award(User $user, string $source, int $subject, int $actor, int $xp, array $options = []): int
@@ -64,7 +64,7 @@ class Ledger
             }
 
             if ($capped && $source !== 'admin') {
-                $xp = $this->underCaps((int) $user->id, $source, $actor, $xp, $day, $options['tags'] ?? null);
+                $xp = $this->underCaps((int) $user->id, $source, $actor, $xp, $day, $options['tags'] ?? null, $options['cooldown'] ?? true, $at);
                 if ($xp <= 0) {
                     return null;
                 }
@@ -338,16 +338,17 @@ class Ledger
      *
      * @param list<int>|null $tags
      */
-    private function underCaps(int $userId, string $source, int $actor, int $xp, int $day, ?array $tags): int
+    private function underCaps(int $userId, string $source, int $actor, int $xp, int $day, ?array $tags, bool $cooldown, Carbon $at): int
     {
         $multiplier = $this->boosts->multiplier($tags);
         $xp *= $multiplier;
 
         $today = fn () => $this->db->table(self::TABLE)->where('user_id', $userId)->where('day', $day)->where('backfilled', false)->whereNull('revoked_at');
 
-        if (in_array($source, ['reply', 'discussion'], true) && ($cooldown = $this->settings->int('cooldown', 30)) > 0) {
+        if ($cooldown && in_array($source, ['reply', 'discussion'], true) && ($seconds = $this->settings->int('cooldown', 30)) > 0) {
             $recent = $today()->whereIn('source', ['reply', 'discussion'])
-                ->where('created_at', '>', Carbon::now()->subSeconds($cooldown))
+                ->where('created_at', '>', $at->copy()->subSeconds($seconds))
+                ->where('created_at', '<=', $at)
                 ->exists();
             if ($recent) {
                 return 0;

@@ -2,6 +2,7 @@
 
 namespace ErnestDefoe\Renown\Api;
 
+use Flarum\Http\SlugManager;
 use Flarum\User\User;
 
 /** A member as Renown's pages show them: name, avatar, and where they stand. */
@@ -14,7 +15,7 @@ final class Presenter
             'id' => (int) $user->id,
             'username' => $user->username,
             'displayName' => $user->display_name,
-            'slug' => $user->username,
+            'slug' => resolve(SlugManager::class)->forResource(User::class)->toSlug($user),
             'avatarUrl' => $user->avatar_url,
             'color' => $user->getAttribute('color'),
             'level' => (int) $user->getAttribute('renown_level'),
