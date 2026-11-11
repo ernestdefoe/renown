@@ -261,6 +261,8 @@ class Replay
         }
 
         $streaks = $this->db->table('cadence_streaks')->where('user_id', '>', $from)->where('user_id', '<=', $to)->where('total_days', '>', 0)->pluck('total_days', 'user_id');
+        // One lump for days spread over the member's history: dated when they joined, so it never counts as "this week".
+        $joined = $this->db->table('users')->whereIn('id', $streaks->keys()->all())->pluck('joined_at', 'id');
         if ($streaks->isEmpty()) {
             return;
         }
@@ -271,7 +273,7 @@ class Replay
         foreach ($streaks as $userId => $days) {
             $days = (int) $days - (int) ($live[$userId] ?? 0);
             if ($days > 0) {
-                $rows[] = $this->row((int) $userId, 'streak', 0, 0, $days * $xp, Carbon::now());
+                $rows[] = $this->row((int) $userId, 'streak', 0, 0, $days * $xp, $joined[$userId] ?? null);
             }
         }
         $this->insert($rows);
