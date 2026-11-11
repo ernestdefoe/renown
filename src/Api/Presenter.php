@@ -17,10 +17,10 @@ final class Presenter
             'slug' => $user->username,
             'avatarUrl' => $user->avatar_url,
             'color' => $user->getAttribute('color'),
-            'level' => (int) $user->renown_level,
-            'prestige' => (int) $user->renown_prestige,
-            'xp' => (int) $user->renown_xp,
-            'lifetime' => (int) $user->renown_lifetime_xp,
+            'level' => (int) $user->getAttribute('renown_level'),
+            'prestige' => (int) $user->getAttribute('renown_prestige'),
+            'xp' => (int) $user->getAttribute('renown_xp'),
+            'lifetime' => (int) $user->getAttribute('renown_lifetime_xp'),
         ];
     }
 }

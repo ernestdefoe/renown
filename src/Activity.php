@@ -97,7 +97,7 @@ class Activity
     public function visited(User $user): void
     {
         $today = Curve::day();
-        if ((int) $user->renown_day !== $today) {
+        if ((int) $user->getAttribute('renown_day') !== $today) {
             $this->db->table('users')->where('id', $user->id)->update(['renown_day' => $today]);
             $user->setAttribute('renown_day', $today);
             $user->syncOriginalAttribute('renown_day');
@@ -115,7 +115,7 @@ class Activity
     public function streak(User $user, ?int $today = null): void
     {
         $today ??= Curve::day();
-        if ((int) $user->renown_streak_day === $today || $this->settings->xp('streak') <= 0 || ! $this->extensions->isEnabled('ernestdefoe-cadence')) {
+        if ((int) $user->getAttribute('renown_streak_day') === $today || $this->settings->xp('streak') <= 0 || ! $this->extensions->isEnabled('ernestdefoe-cadence')) {
             return;
         }
 

@@ -31,10 +31,10 @@ class RenownData extends Type
     {
         $db = resolve('db');
         $data = [
-            'level' => (int) $this->user->renown_level,
-            'prestige' => (int) $this->user->renown_prestige,
-            'xp_this_climb' => (int) $this->user->renown_xp,
-            'lifetime_xp' => (int) $this->user->renown_lifetime_xp,
+            'level' => (int) $this->user->getAttribute('renown_level'),
+            'prestige' => (int) $this->user->getAttribute('renown_prestige'),
+            'xp_this_climb' => (int) $this->user->getAttribute('renown_xp'),
+            'lifetime_xp' => (int) $this->user->getAttribute('renown_lifetime_xp'),
             'emblems' => $db->table('renown_prestiges')->where('user_id', $this->user->id)->orderBy('tier')->get(['tier', 'reached_at'])->all(),
             'log' => $db->table(Ledger::TABLE)->where('user_id', $this->user->id)->orderBy('id')
                 ->get(['source', 'subject_id', 'xp', 'prestige', 'note', 'created_at'])->all(),

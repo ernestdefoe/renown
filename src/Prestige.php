@@ -27,7 +27,7 @@ class Prestige
 
     public static function canTake(User $user): bool
     {
-        return (int) $user->renown_level >= Curve::MAX_LEVEL && (int) $user->renown_prestige < Curve::ETERNAL;
+        return (int) $user->getAttribute('renown_level') >= Curve::MAX_LEVEL && (int) $user->getAttribute('renown_prestige') < Curve::ETERNAL;
     }
 
     /** @return int the new tier */

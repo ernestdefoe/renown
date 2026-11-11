@@ -36,12 +36,12 @@ class MeController extends Handler
         } else {
             $hidden = (bool) (self::body($request)['hidden'] ?? false);
             $this->db->table('users')->where('id', $actor->id)->update(['renown_hidden' => $hidden]);
-            $actor->renown_hidden = $hidden;
+            $actor->setAttribute('renown_hidden', $hidden);
         }
 
         return new JsonResponse(['data' => Presenter::user($actor) + [
             'tier' => $tier ?? null,
-            'hidden' => (bool) $actor->renown_hidden,
+            'hidden' => (bool) $actor->getAttribute('renown_hidden'),
             'seen' => self::seen($actor),
         ]]);
     }
@@ -49,6 +49,6 @@ class MeController extends Handler
     /** The point the member has been told about: prestige × 1000 + level. */
     public static function seen(User $user): int
     {
-        return (int) $user->renown_prestige * 1000 + (int) $user->renown_level;
+        return (int) $user->getAttribute('renown_prestige') * 1000 + (int) $user->getAttribute('renown_level');
     }
 }

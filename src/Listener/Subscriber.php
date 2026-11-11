@@ -58,8 +58,8 @@ class Subscriber
             if (Curve::rank($event->from) !== Curve::rank($event->to)) {
                 $this->rewards->sync($event->user);
             }
-            if (! $event->quiet && $event->to >= Curve::MAX_LEVEL && $event->from < Curve::MAX_LEVEL && (int) $event->user->renown_prestige < Curve::ETERNAL) {
-                $this->notifications->sync(new PrestigeReadyBlueprint($event->user, (int) $event->user->renown_prestige + 1), [$event->user]);
+            if (! $event->quiet && $event->to >= Curve::MAX_LEVEL && $event->from < Curve::MAX_LEVEL && (int) $event->user->getAttribute('renown_prestige') < Curve::ETERNAL) {
+                $this->notifications->sync(new PrestigeReadyBlueprint($event->user, (int) $event->user->getAttribute('renown_prestige') + 1), [$event->user]);
             }
         });
         $events->listen(PrestigeTaken::class, fn (PrestigeTaken $event) => $this->rewards->sync($event->user));

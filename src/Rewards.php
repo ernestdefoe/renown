@@ -39,8 +39,8 @@ class Rewards
             return;
         }
 
-        $rank = Curve::rank((int) $user->renown_level);
-        $tier = (int) $user->renown_prestige;
+        $rank = Curve::rank((int) $user->getAttribute('renown_level'));
+        $tier = (int) $user->getAttribute('renown_prestige');
         $granted = $this->db->table('renown_grants')->where('user_id', $user->id)->pluck('group_id')->map(fn ($id) => (int) $id)->all();
 
         $wanted = [];

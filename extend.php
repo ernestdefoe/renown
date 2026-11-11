@@ -72,13 +72,13 @@ return [
     // Columns on the user row Flarum already loads: no query, on every post and card.
     (new Extend\ApiResource(UserResource::class))
         ->fields(fn () => [
-            Schema\Integer::make('renownLevel')->get(fn (User $user) => (int) $user->renown_level),
-            Schema\Integer::make('renownPrestige')->get(fn (User $user) => (int) $user->renown_prestige),
-            Schema\Integer::make('renownXp')->get(fn (User $user) => (int) $user->renown_xp),
-            Schema\Integer::make('renownLifetimeXp')->get(fn (User $user) => (int) $user->renown_lifetime_xp),
+            Schema\Integer::make('renownLevel')->get(fn (User $user) => (int) $user->getAttribute('renown_level')),
+            Schema\Integer::make('renownPrestige')->get(fn (User $user) => (int) $user->getAttribute('renown_prestige')),
+            Schema\Integer::make('renownXp')->get(fn (User $user) => (int) $user->getAttribute('renown_xp')),
+            Schema\Integer::make('renownLifetimeXp')->get(fn (User $user) => (int) $user->getAttribute('renown_lifetime_xp')),
             Schema\Integer::make('renownSeen')
                 ->visible(fn (User $user, Context $context) => (int) $context->getActor()->id === (int) $user->id)
-                ->get(fn (User $user) => (int) $user->renown_seen),
+                ->get(fn (User $user) => (int) $user->getAttribute('renown_seen')),
         ]),
 
     // The rank and tier names and icons (cached settings), and a running Double XP event (cached a minute).

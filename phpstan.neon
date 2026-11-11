@@ -11,6 +11,13 @@ parameters:
     paths:
         - extend.php
         - src
-    # FoF Badges is optional: only touched after isEnabled('fof-badges') and class_exists().
+    databaseMigrationsPath: [migrations]
+    # Optional extensions Renown works with only while they're enabled (Extend\Conditional, isEnabled + class_exists).
+    excludePaths:
+        - src/Badges/Metric.php
+        - src/Integration/Buzz.php
+        - src/Integration/Kudos.php
     ignoreErrors:
-        - '#FoF\\Badges#'
+        - '#(ErnestDefoe\\Answers|Ernestdefoe\\Buzz|ErnestDefoe\\Kudos|Flarum\\Approval|FoF\\BestAnswer|FoF\\Badges)\\#'
+        # flarum/tags adds the relation; only called after isEnabled('flarum-tags').
+        - '#Call to an undefined method Flarum\\Discussion\\Discussion::tags\(\)#'

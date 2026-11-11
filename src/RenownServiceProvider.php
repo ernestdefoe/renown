@@ -16,7 +16,7 @@ class RenownServiceProvider extends AbstractServiceProvider
     public function boot(ExtensionManager $extensions): void
     {
         User::saved(function (User $user) {
-            if ($user->wasChanged('last_seen_at') && (int) $user->renown_day !== Curve::day()) {
+            if ($user->wasChanged('last_seen_at') && (int) $user->getAttribute('renown_day') !== Curve::day()) {
                 resolve(Activity::class)->visited($user);
             }
         });

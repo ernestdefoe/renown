@@ -31,12 +31,12 @@ class ProfileController extends Handler
         }
 
         $id = (int) $user->id;
-        $prestige = (int) $user->renown_prestige;
-        $xp = (int) $user->renown_xp;
+        $prestige = (int) $user->getAttribute('renown_prestige');
+        $xp = (int) $user->getAttribute('renown_xp');
 
         $week = (int) $this->db->table(Ledger::TABLE)->where('user_id', $id)->where('created_at', '>=', Carbon::now()->subDays(7))->sum('xp');
 
-        $position = $user->renown_hidden || ! $user->renown_lifetime_xp ? null : 1 + $this->db->table('users')
+        $position = $user->getAttribute('renown_hidden') || ! $user->getAttribute('renown_lifetime_xp') ? null : 1 + $this->db->table('users')
             ->where('renown_hidden', false)
             ->where(fn ($q) => $q->where('renown_prestige', '>', $prestige)
                 ->orWhere(fn ($q) => $q->where('renown_prestige', $prestige)->where('renown_xp', '>', $xp))
@@ -58,7 +58,7 @@ class ProfileController extends Handler
             'emblems' => $emblems,
             'sources' => $sources,
             'canPrestige' => $self && Prestige::canTake($user),
-            'hidden' => $self ? (bool) $user->renown_hidden : null,
+            'hidden' => $self ? (bool) $user->getAttribute('renown_hidden') : null,
             'canAdjust' => $actor->can('renown.adjust'),
         ]]);
     }

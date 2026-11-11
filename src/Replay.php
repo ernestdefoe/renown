@@ -151,7 +151,7 @@ class Replay
                 'posts' => $this->posts($from, $to),
                 'kudos' => $this->kudos($from, $to),
                 'streaks' => $this->streaks($from, $to),
-                'totals' => $this->totals($from, $to),
+                default => $this->totals($from, $to),
             };
         }
 
@@ -175,7 +175,7 @@ class Replay
         return (int) match ($phase) {
             'posts' => $this->db->table('posts')->max('id'),
             'kudos' => $this->extensions->isEnabled('ernestdefoe-kudos') ? $this->db->table('kudos')->max('id') : 0,
-            'streaks', 'totals' => $this->db->table('users')->max('id'),
+            default => $this->db->table('users')->max('id'),
         };
     }
 
