@@ -617,9 +617,10 @@ class RenownTest extends TestCase
         $this->set('cap_daily', 25);
         $this->app();
         // A second discussion to earn in (fixtures added after setUp's are dropped: insert directly).
-        $this->database()->table('discussions')->insert(['id' => 3, 'title' => 'Elsewhere', 'slug' => 'elsewhere', 'user_id' => self::AVA, 'created_at' => Carbon::now()->subDay(), 'comment_count' => 1, 'last_post_number' => 1, 'is_private' => 0]);
-        $this->database()->table('posts')->insert(['id' => 3, 'discussion_id' => 3, 'user_id' => self::AVA, 'type' => 'comment', 'number' => 1, 'content' => '<t><p>Somewhere else.</p></t>', 'created_at' => Carbon::now()->subDay(), 'is_private' => 0]);
-        $this->database()->table('discussions')->where('id', 3)->update(['first_post_id' => 3]);
+        // Ids from the database: an explicit id doesn't move PostgreSQL's sequence, and the next real post would collide.
+        $elsewhere = $this->database()->table('discussions')->insertGetId(['title' => 'Elsewhere', 'slug' => 'elsewhere', 'user_id' => self::AVA, 'created_at' => Carbon::now()->subDay(), 'comment_count' => 1, 'last_post_number' => 1, 'is_private' => 0]);
+        $first = $this->database()->table('posts')->insertGetId(['discussion_id' => $elsewhere, 'user_id' => self::AVA, 'type' => 'comment', 'number' => 1, 'content' => '<t><p>Somewhere else.</p></t>', 'created_at' => Carbon::now()->subDay(), 'is_private' => 0]);
+        $this->database()->table('discussions')->where('id', $elsewhere)->update(['first_post_id' => $first]);
         $a = $this->reply(self::BO);
         $this->reply(self::BO); // 5 visit + 10 + 10 = the cap of 25
 
@@ -627,7 +628,7 @@ class RenownTest extends TestCase
         $hide = fn (int $id, bool $hidden) => $this->api('PATCH', '/posts/'.$id, self::MO, ['data' => ['type' => 'posts', 'id' => (string) $id, 'attributes' => ['isHidden' => $hidden]]]);
         $hide($a, true);
         Carbon::setTestNow(Carbon::now()->addMinutes(2));
-        [$status] = $this->api('POST', '/posts', self::BO, ['data' => ['type' => 'posts', 'attributes' => ['content' => 'And here is a long enough reply in another discussion.'], 'relationships' => ['discussion' => ['data' => ['type' => 'discussions', 'id' => '3']]]]]);
+        [$status] = $this->api('POST', '/posts', self::BO, ['data' => ['type' => 'posts', 'attributes' => ['content' => 'And here is a long enough reply in another discussion.'], 'relationships' => ['discussion' => ['data' => ['type' => 'discussions', 'id' => (string) $elsewhere]]]]]);
         $this->assertSame(201, $status);
         $hide($a, false);
 
