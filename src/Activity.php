@@ -30,8 +30,8 @@ class Activity
     ) {
     }
 
-    /** A new comment, or one that was just approved. */
-    public function posted(Post $post): void
+    /** A new comment, or one that was just approved (not the author's visit then: a moderator approved it). */
+    public function posted(Post $post, bool $visit = true): void
     {
         $author = $post->user;
         if (! $author || ! $this->counts($post)) {
@@ -42,14 +42,12 @@ class Activity
         $first = (int) $post->id === (int) $discussion->first_post_id || (int) $post->number === 1;
         $source = $first ? 'discussion' : 'reply';
 
-        if (! $first && mb_strlen(self::ownWords((string) $post->content)) < $this->settings->int('min_length', 20)) {
-            $this->visited($author);
-
-            return;
+        if ($first || mb_strlen(self::ownWords((string) $post->content)) >= $this->settings->int('min_length', 20)) {
+            $this->ledger->award($author, $source, (int) $post->id, 0, $this->settings->xp($source), ['tags' => $this->boostTags($discussion)]);
         }
-
-        $this->ledger->award($author, $source, (int) $post->id, 0, $this->settings->xp($source), ['tags' => $this->boostTags($discussion)]);
-        $this->visited($author);
+        if ($visit) {
+            $this->visited($author);
+        }
     }
 
     public function liked(Post $post, User $liker): void
@@ -76,6 +74,15 @@ class Activity
         }
 
         $this->ledger->award($author, 'best_answer', (int) $post->id, 0, $this->settings->xp('best_answer'), ['tags' => $this->boostTags($post->discussion)]);
+    }
+
+    /** Answers swaps the accepted answer without an "unaccepted" event: the discussion's other posts give theirs back. */
+    public function onlyBestAnswer(Post $post): void
+    {
+        $others = $post->discussion->posts()->where('id', '<>', $post->id)->pluck('id')->all();
+        foreach (array_chunk($others, 500) as $chunk) {
+            $this->ledger->revoke(fn ($q) => $q->where('source', 'best_answer')->whereIn('subject_id', $chunk));
+        }
     }
 
     public function notBestAnswer(Post $post): void
@@ -142,50 +149,37 @@ class Activity
     }
 
     /**
-     * A post was hidden or deleted (or its discussion was): everything it earned goes.
+     * A post (or its discussion) was hidden or deleted: everything it earned
+     * goes. Hidden is soft, so a restore brings back exactly that.
      *
      * @param list<int> $postIds
      */
-    public function takeBack(array $postIds): void
+    public function takeBack(array $postIds, bool $soft = false): void
     {
         foreach (array_chunk($postIds, 500) as $chunk) {
-            $this->ledger->revoke(fn ($q) => $q->whereIn('source', self::POST_SOURCES)->whereIn('subject_id', $chunk));
+            $this->ledger->revoke(fn ($q) => $q->whereIn('source', self::POST_SOURCES)->whereIn('subject_id', $chunk), $soft);
         }
     }
 
     /**
-     * A post came back: it earns again what it earned before, outside the
-     * day's caps (it was earned already), with its likes, upvotes and best answer.
+     * Posts came back (restored, or their discussion moved back into scope):
+     * they get exactly what they earned before, never fresh XP, so hiding and
+     * restoring can't get around the day's rules.
+     *
+     * @param list<int> $postIds
      */
-    public function restore(Post $post): void
+    public function restore(array $postIds): void
     {
-        $author = $post->user;
-        if (! $author || ! $this->counts($post)) {
-            return;
+        foreach (array_chunk($postIds, 500) as $chunk) {
+            $this->ledger->reinstate(fn ($q) => $q->whereIn('source', self::POST_SOURCES)->whereIn('subject_id', $chunk));
         }
+    }
 
-        $discussion = $post->discussion;
-        $first = (int) $post->id === (int) $discussion->first_post_id || (int) $post->number === 1;
-        $at = $post->created_at;
-        $uncapped = ['capped' => false, 'at' => $at];
-
-        $this->ledger->award($author, $first ? 'discussion' : 'reply', (int) $post->id, 0, $this->settings->xp($first ? 'discussion' : 'reply'), $uncapped);
-
-        if ($this->extensions->isEnabled('flarum-likes')) {
-            foreach ($this->db->table('post_likes')->where('post_id', $post->id)->where('user_id', '<>', $author->id)->pluck('user_id') as $liker) {
-                $this->ledger->award($author, 'like', (int) $post->id, (int) $liker, $this->settings->xp('like'), $uncapped);
-            }
-        }
-
-        if ($this->extensions->isEnabled('ernestdefoe-answers')) {
-            foreach ($this->db->table('answers_votes')->where('post_id', $post->id)->where('value', '>', 0)->where('user_id', '<>', $author->id)->pluck('user_id') as $voter) {
-                $this->ledger->award($author, 'answer_upvote', (int) $post->id, (int) $voter, $this->settings->xp('answer_upvote'), $uncapped);
-            }
-        }
-
-        if ($this->isBestAnswer($post)) {
-            $this->ledger->award($author, 'best_answer', (int) $post->id, 0, $this->settings->xp('best_answer'), $uncapped);
-        }
+    /** A discussion was retagged: out of scope (an excluded tag) takes its XP back, back in scope restores it. */
+    public function retagged(Discussion $discussion): void
+    {
+        $ids = $discussion->posts()->whereNull('hidden_at')->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $this->discussionCounts($discussion) ? $this->restore($ids) : $this->takeBack($ids, true);
     }
 
     /** Whether this post may earn XP at all. */
@@ -198,8 +192,12 @@ class Activity
             return false;
         }
 
-        $discussion = $post->discussion;
-        if (! $discussion || $discussion->hidden_at || $discussion->getAttribute('is_private')) {
+        return $post->discussion && $this->discussionCounts($post->discussion);
+    }
+
+    public function discussionCounts(Discussion $discussion): bool
+    {
+        if ($discussion->hidden_at || $discussion->getAttribute('is_private')) {
             return false;
         }
 
@@ -232,14 +230,6 @@ class Activity
         }
 
         return array_map('intval', $discussion->tags()->pluck('tags.id')->all());
-    }
-
-    private function isBestAnswer(Post $post): bool
-    {
-        $discussion = $post->discussion;
-
-        return ($this->extensions->isEnabled('fof-best-answer') && (int) $discussion->getAttribute('best_answer_post_id') === (int) $post->id)
-            || ($this->extensions->isEnabled('ernestdefoe-answers') && (int) $discussion->getAttribute('answers_accepted_post_id') === (int) $post->id);
     }
 
     /** The member's own words: quotes (Markdown `>` lines and BBCode [quote]) don't count toward the minimum length. */

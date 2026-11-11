@@ -12,8 +12,16 @@ return [
         if (! $exists) {
             $db->table('settings')->insert(['key' => 'ernestdefoe-renown.replay', 'value' => json_encode(['phase' => 'posts', 'cursor' => 0])]);
         }
+        // History ends here: posts, likes and kudos after this are live, and a replay never counts them again.
+        if (! $db->table('settings')->where('key', 'ernestdefoe-renown.boundary')->exists()) {
+            $db->table('settings')->insert(['key' => 'ernestdefoe-renown.boundary', 'value' => json_encode([
+                'posts' => (int) $db->table('posts')->max('id'),
+                'kudos' => $schema->hasTable('kudos') ? (int) $db->table('kudos')->max('id') : 0,
+                'at' => gmdate('Y-m-d H:i:s'),
+            ])]);
+        }
     },
     'down' => function (Builder $schema) {
-        $schema->getConnection()->table('settings')->where('key', 'ernestdefoe-renown.replay')->delete();
+        $schema->getConnection()->table('settings')->whereIn('key', ['ernestdefoe-renown.replay', 'ernestdefoe-renown.boundary'])->delete();
     },
 ];

@@ -34,10 +34,12 @@ class ProfileController extends Handler
         $prestige = (int) $user->getAttribute('renown_prestige');
         $xp = (int) $user->getAttribute('renown_xp');
 
-        $week = (int) $this->db->table(Ledger::TABLE)->where('user_id', $id)->where('created_at', '>=', Carbon::now()->subDays(7))->sum('xp');
+        $week = (int) $this->db->table(Ledger::TABLE)->where('user_id', $id)->whereNull('revoked_at')->where('created_at', '>=', Carbon::now()->subDays(7))->sum('xp');
 
-        $position = $user->getAttribute('renown_hidden') || ! $user->getAttribute('renown_lifetime_xp') ? null : 1 + $this->db->table('users')
+        // Counted among the members the viewer can see, like the board itself.
+        $position = $user->getAttribute('renown_hidden') || ! $user->getAttribute('renown_lifetime_xp') ? null : 1 + User::query()->whereVisibleTo($actor)
             ->where('renown_hidden', false)
+            ->where('renown_lifetime_xp', '>', 0)
             ->where(fn ($q) => $q->where('renown_prestige', '>', $prestige)
                 ->orWhere(fn ($q) => $q->where('renown_prestige', $prestige)->where('renown_xp', '>', $xp))
                 ->orWhere(fn ($q) => $q->where('renown_prestige', $prestige)->where('renown_xp', $xp)->where('id', '<', $id)))
@@ -46,7 +48,7 @@ class ProfileController extends Handler
         $emblems = $this->db->table('renown_prestiges')->where('user_id', $id)->orderBy('tier')->get(['tier', 'reached_at'])
             ->map(fn ($row) => ['tier' => (int) $row->tier, 'reachedAt' => Carbon::parse($row->reached_at)->toIso8601String()])->all();
 
-        $sources = $this->db->table(Ledger::TABLE)->where('user_id', $id)->where('created_at', '>=', Carbon::now()->subDays(30))
+        $sources = $this->db->table(Ledger::TABLE)->where('user_id', $id)->whereNull('revoked_at')->where('created_at', '>=', Carbon::now()->subDays(30))
             ->groupBy('source')->selectRaw('source, SUM(xp) as xp')->orderByDesc('xp')->pluck('xp', 'source')
             ->map(fn ($xp) => (int) $xp)->filter(fn ($xp) => $xp > 0)->all();
 

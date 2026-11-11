@@ -149,7 +149,11 @@ return [
         ])
         ->whenExtensionEnabled('flarum-approval', fn () => [
             (new Extend\Event())
-                ->listen(\Flarum\Approval\Event\PostWasApproved::class, fn ($e) => resolve(Activity::class)->posted($e->post)),
+                ->listen(\Flarum\Approval\Event\PostWasApproved::class, fn ($e) => resolve(Activity::class)->posted($e->post, false)),
+        ])
+        ->whenExtensionEnabled('flarum-tags', fn () => [
+            (new Extend\Event())
+                ->listen(\Flarum\Tags\Event\DiscussionWasTagged::class, fn ($e) => resolve(Activity::class)->retagged($e->discussion)),
         ])
         ->whenExtensionEnabled('fof-best-answer', fn () => [
             (new Extend\Event())

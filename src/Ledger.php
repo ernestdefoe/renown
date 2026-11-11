@@ -8,6 +8,7 @@ use ErnestDefoe\Renown\Event\XpAwarded;
 use Flarum\User\User;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\ConnectionInterface;
+use Illuminate\Support\Collection;
 
 /**
  * Every XP change goes through here: one `renown_xp_log` row per award, and
@@ -136,12 +137,60 @@ class Ledger
     }
 
     /**
-     * Take back what some rows gave, exactly: the rows go, and each member's
-     * totals drop by them. Always quiet: a level lost is never announced.
+     * Take back what some rows gave, exactly, and lower each member's totals
+     * by them. Always quiet: a level lost is never announced.
+     *
+     * Hard (an unlike, a deleted post): the rows go, so the same thing can be
+     * earned again later under the day's rules. Soft (a hidden post, a
+     * discussion moved out of scope): the rows stay, marked revoked, so a
+     * restore brings back exactly what was earned and nothing more.
      *
      * @param callable(\Illuminate\Database\Query\Builder): mixed $scope narrows the log query
      */
-    public function revoke(callable $scope): void
+    public function revoke(callable $scope, bool $soft = false): void
+    {
+        $this->each($scope, function (object $row, Collection $rows) use ($soft) {
+            $active = $rows->whereNull('revoked_at');
+            if ($soft) {
+                $this->db->table(self::TABLE)->whereIn('id', $active->pluck('id')->all())->update(['revoked_at' => Carbon::now()]);
+            } else {
+                $this->db->table(self::TABLE)->whereIn('id', $rows->pluck('id')->all())->delete();
+            }
+
+            return $active->isEmpty() ? null : $this->apply($row, -$this->climbOf($active, $row), -(int) $active->sum('xp'));
+        });
+    }
+
+    /**
+     * Bring back rows a soft take-back revoked (a restored post or discussion):
+     * exactly the XP they earned, in the climb they were earned in.
+     *
+     * @param callable(\Illuminate\Database\Query\Builder): mixed $scope narrows the log query
+     */
+    public function reinstate(callable $scope): void
+    {
+        $this->each(function ($q) use ($scope) {
+            $scope($q);
+            $q->whereNotNull('revoked_at');
+        }, function (object $row, Collection $rows) {
+            $back = $rows->whereNotNull('revoked_at');
+            if ($back->isEmpty()) {
+                return null;
+            }
+            $this->db->table(self::TABLE)->whereIn('id', $back->pluck('id')->all())->update(['revoked_at' => null]);
+
+            return $this->apply($row, $this->climbOf($back, $row), (int) $back->sum('xp'));
+        });
+    }
+
+    /**
+     * Each member's matching rows, read again under their lock (a racing
+     * take-back may have handled some already), then their change published.
+     *
+     * @param callable(\Illuminate\Database\Query\Builder): mixed $scope
+     * @param callable(object, Collection<int, \stdClass>): (array{from: int, to: int, xp: int, lifetime: int, prestige: int}|null) $change
+     */
+    private function each(callable $scope, callable $change): void
     {
         $query = $this->db->table(self::TABLE)->select(['id', 'user_id']);
         $scope($query);
@@ -151,28 +200,35 @@ class Ledger
         }
 
         foreach ($byUser as $userId => $ids) {
-            $change = $this->db->transaction(function () use ($userId, $ids) {
+            $result = $this->db->transaction(function () use ($userId, $ids, $change) {
                 $row = $this->lock($userId);
-                if (! $row) {
-                    return null;
-                }
-                // Read again under the lock: a racing take-back may have removed some already.
-                $rows = $this->db->table(self::TABLE)->whereIn('id', $ids)->get(['id', 'xp', 'prestige']);
-                if ($rows->isEmpty()) {
-                    return null;
-                }
-                $this->db->table(self::TABLE)->whereIn('id', $rows->pluck('id')->all())->delete();
+                $rows = $this->db->table(self::TABLE)->whereIn('id', $ids)->get(['id', 'xp', 'prestige', 'revoked_at']);
 
-                $climb = (int) $rows->where('prestige', (int) $row->renown_prestige)->sum('xp');
-                $lifetime = (int) $rows->sum('xp');
-
-                return $this->apply($row, -$climb, -$lifetime);
+                return $row && $rows->isNotEmpty() ? $change($row, $rows) : null;
             });
 
-            if ($change && ($user = User::query()->find($userId))) {
-                $this->publish($user, $change, true);
+            if ($result && ($user = User::query()->find($userId))) {
+                $this->publish($user, $result, true);
             }
         }
+    }
+
+    /**
+     * What of these rows belongs to the member's current climb. Eternal keeps
+     * the climb that reached it (tier 20) with no reset.
+     *
+     * @param Collection<int, \stdClass> $rows
+     */
+    private function climbOf(Collection $rows, object $user): int
+    {
+        $tier = (int) $user->renown_prestige;
+
+        return (int) $rows->filter(fn ($r) => self::inClimb((int) $r->prestige, $tier))->sum('xp');
+    }
+
+    public static function inClimb(int $rowPrestige, int $userPrestige): bool
+    {
+        return $rowPrestige === $userPrestige || ($userPrestige >= Curve::ETERNAL && $rowPrestige === Curve::TIERS);
     }
 
     /**
@@ -195,8 +251,12 @@ class Ledger
                 ->whereIn(self::TABLE.'.user_id', $userIds)
                 ->groupBy(self::TABLE.'.user_id')
                 ->selectRaw($grammar->wrap(self::TABLE.'.user_id').' as uid')
+                ->whereNull(self::TABLE.'.revoked_at')
                 ->selectRaw('SUM('.$grammar->wrap(self::TABLE.'.xp').') as lifetime')
-                ->selectRaw('SUM(CASE WHEN '.$grammar->wrap(self::TABLE.'.prestige').' = '.$grammar->wrap('users.renown_prestige').' THEN '.$grammar->wrap(self::TABLE.'.xp').' ELSE 0 END) as climb')
+                // Rows of the member's current climb; Eternal (21) keeps the climb that reached it (20).
+                ->selectRaw('SUM(CASE WHEN '.$grammar->wrap(self::TABLE.'.prestige').' = '.$grammar->wrap('users.renown_prestige')
+                    .' OR ('.$grammar->wrap('users.renown_prestige').' >= '.Curve::ETERNAL.' AND '.$grammar->wrap(self::TABLE.'.prestige').' = '.Curve::TIERS.')'
+                    .' THEN '.$grammar->wrap(self::TABLE.'.xp').' ELSE 0 END) as climb')
                 ->get()
                 ->keyBy('uid');
 
@@ -283,7 +343,7 @@ class Ledger
         $multiplier = $this->boosts->multiplier($tags);
         $xp *= $multiplier;
 
-        $today = fn () => $this->db->table(self::TABLE)->where('user_id', $userId)->where('day', $day)->where('backfilled', false);
+        $today = fn () => $this->db->table(self::TABLE)->where('user_id', $userId)->where('day', $day)->where('backfilled', false)->whereNull('revoked_at');
 
         if (in_array($source, ['reply', 'discussion'], true) && ($cooldown = $this->settings->int('cooldown', 30)) > 0) {
             $recent = $today()->whereIn('source', ['reply', 'discussion'])

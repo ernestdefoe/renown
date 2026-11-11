@@ -35,6 +35,7 @@ class BoardController extends Handler
             $month = Carbon::now('UTC')->startOfMonth();
             $top = $this->cache->remember('ernestdefoe-renown.board.'.$month->format('Ym'), 300, fn () => $this->db->table(Ledger::TABLE)
                 ->where('created_at', '>=', $month)
+                ->whereNull('revoked_at')
                 ->groupBy('user_id')
                 ->selectRaw('user_id, SUM(xp) as gained')
                 ->havingRaw('SUM(xp) > 0')

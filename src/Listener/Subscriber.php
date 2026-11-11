@@ -12,7 +12,6 @@ use Flarum\Discussion\Discussion;
 use Flarum\Discussion\Event as DiscussionEvent;
 use Flarum\Notification\NotificationSyncer;
 use Flarum\Post\Event as PostEvent;
-use Flarum\Post\Post;
 use Illuminate\Contracts\Events\Dispatcher;
 
 /**
@@ -38,19 +37,22 @@ class Subscriber
                 $this->activity->posted($event->post);
             }
         });
-        $events->listen(PostEvent\Hidden::class, fn (PostEvent\Hidden $event) => $this->activity->takeBack([(int) $event->post->id]));
+        // Hidden is soft (a restore brings back exactly what was earned); deleted is for good.
+        $events->listen(PostEvent\Hidden::class, fn (PostEvent\Hidden $event) => $this->activity->takeBack([(int) $event->post->id], true));
         $events->listen(PostEvent\Deleted::class, fn (PostEvent\Deleted $event) => $this->activity->takeBack([(int) $event->post->id]));
-        $events->listen(PostEvent\Restored::class, fn (PostEvent\Restored $event) => $this->activity->restore($event->post));
+        $events->listen(PostEvent\Restored::class, function (PostEvent\Restored $event) {
+            if ($this->activity->counts($event->post)) {
+                $this->activity->restore([(int) $event->post->id]);
+            }
+        });
 
-        $events->listen(DiscussionEvent\Hidden::class, fn (DiscussionEvent\Hidden $event) => $this->activity->takeBack($this->postIds($event->discussion)));
+        $events->listen(DiscussionEvent\Hidden::class, fn (DiscussionEvent\Hidden $event) => $this->activity->takeBack($this->postIds($event->discussion), true));
         // Before the posts go with it: afterwards there's nothing left to look up.
         $events->listen(DiscussionEvent\Deleting::class, fn (DiscussionEvent\Deleting $event) => $this->activity->takeBack($this->postIds($event->discussion)));
         $events->listen(DiscussionEvent\Restored::class, function (DiscussionEvent\Restored $event) {
-            $event->discussion->hidden_at = null;
-            foreach ($event->discussion->posts()->where('type', 'comment')->whereNull('hidden_at')->get() as $post) {
-                /** @var Post $post */
-                $post->setRelation('discussion', $event->discussion);
-                $this->activity->restore($post);
+            if ($this->activity->discussionCounts($event->discussion)) {
+                // Posts hidden on their own stay hidden, and so does their XP.
+                $this->activity->restore($this->postIds($event->discussion, true));
             }
         });
 
@@ -66,8 +68,8 @@ class Subscriber
     }
 
     /** @return list<int> */
-    private function postIds(Discussion $discussion): array
+    private function postIds(Discussion $discussion, bool $visibleOnly = false): array
     {
-        return $discussion->posts()->pluck('id')->map(fn ($id) => (int) $id)->all();
+        return $discussion->posts()->when($visibleOnly, fn ($q) => $q->whereNull('hidden_at'))->pluck('id')->map(fn ($id) => (int) $id)->all();
     }
 }

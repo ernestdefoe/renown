@@ -30,6 +30,9 @@ class Replay
 {
     public const KEY = 'ernestdefoe-renown.replay';
 
+    /** Where history ends and live activity begins: set at install, never moved. */
+    public const BOUNDARY = 'ernestdefoe-renown.boundary';
+
     private const PHASES = ['posts', 'kudos', 'streaks', 'totals'];
 
     /** How much of the bar each phase fills. */
@@ -95,7 +98,8 @@ class Replay
     public function request(bool $fresh = false): void
     {
         if ($fresh) {
-            $this->db->table(Ledger::TABLE)->where('backfilled', true)->delete();
+            // The Cadence lump stays: Cadence counts days, not each day, so it can't be told apart again.
+            $this->db->table(Ledger::TABLE)->where('backfilled', true)->where(fn ($q) => $q->where('source', '<>', 'streak')->orWhere('subject_id', '>', 0))->delete();
         }
         $this->save(['phase' => 'posts', 'cursor' => 0, 'started_at' => Carbon::now()->toIso8601String()]);
     }
@@ -143,7 +147,8 @@ class Replay
         }
 
         $from = (int) $state['cursor'];
-        $to = $from + (int) $state['span'];
+        // Never past the boundary: the last slice stops at it.
+        $to = min($from + (int) $state['span'], (int) $state['max']);
         $started = microtime(true);
 
         if ($from < $state['max']) {
@@ -172,11 +177,43 @@ class Replay
 
     private function max(string $phase): int
     {
+        $boundary = $this->boundary();
+
         return (int) match ($phase) {
-            'posts' => $this->db->table('posts')->max('id'),
-            'kudos' => $this->extensions->isEnabled('ernestdefoe-kudos') ? $this->db->table('kudos')->max('id') : 0,
+            'posts' => $boundary['posts'],
+            'kudos' => $boundary['kudos'],
             default => $this->db->table('users')->max('id'),
         };
+    }
+
+    /**
+     * The last post and kudos, and the moment, history ends. Everything after
+     * it is live activity that already went through the day's rules, so no
+     * replay (a rebuild included) may count it again.
+     *
+     * @return array{posts: int, kudos: int, at: string}
+     */
+    public function boundary(): array
+    {
+        $saved = json_decode((string) $this->settingsRepo->get(self::BOUNDARY), true);
+        if (is_array($saved) && isset($saved['posts'], $saved['kudos'], $saved['at'])) {
+            return $saved;
+        }
+
+        $boundary = self::measure($this->db, $this->extensions->isEnabled('ernestdefoe-kudos'));
+        $this->settingsRepo->set(self::BOUNDARY, json_encode($boundary));
+
+        return $boundary;
+    }
+
+    /** @return array{posts: int, kudos: int, at: string} */
+    public static function measure(ConnectionInterface $db, bool $kudos): array
+    {
+        return [
+            'posts' => (int) $db->table('posts')->max('id'),
+            'kudos' => $kudos && $db->getSchemaBuilder()->hasTable('kudos') ? (int) $db->table('kudos')->max('id') : 0,
+            'at' => Carbon::now()->toDateTimeString(),
+        ];
     }
 
     /** Posts and what they earned: replies, discussions, likes, best answers, Answers upvotes, and the days posted. */
@@ -198,6 +235,7 @@ class Replay
             $likes = $this->eligible($from, $to)
                 ->join('post_likes', 'post_likes.post_id', '=', 'posts.id')
                 ->whereColumn('post_likes.user_id', '<>', 'posts.user_id')
+                ->where(fn ($q) => $q->whereNull('post_likes.created_at')->orWhere('post_likes.created_at', '<=', $this->boundary()['at']))
                 ->get(['posts.id', 'posts.user_id', 'posts.created_at', 'post_likes.user_id as liker', 'post_likes.created_at as liked_at']);
             foreach ($likes as $like) {
                 $rows[] = $this->row((int) $like->user_id, 'like', (int) $like->id, (int) $like->liker, $xp('like'), $like->liked_at ?? $like->created_at);
@@ -209,6 +247,7 @@ class Replay
                 ->join('answers_votes', 'answers_votes.post_id', '=', 'posts.id')
                 ->where('answers_votes.value', '>', 0)
                 ->whereColumn('answers_votes.user_id', '<>', 'posts.user_id')
+                ->where('answers_votes.created_at', '<=', $this->boundary()['at'])
                 ->get(['posts.id', 'posts.user_id', 'answers_votes.user_id as voter', 'answers_votes.created_at']);
             foreach ($votes as $vote) {
                 $rows[] = $this->row((int) $vote->user_id, 'answer_upvote', (int) $vote->id, (int) $vote->voter, $xp('answer_upvote'), $vote->created_at);
@@ -225,6 +264,7 @@ class Replay
             }
             foreach ($columns as [$column, $when]) {
                 $best = $this->eligible($from, $to)->whereColumn('posts.id', $column)
+                    ->when($when, fn ($q) => $q->where(fn ($q) => $q->whereNull($when)->orWhere($when, '<=', $this->boundary()['at'])))
                     ->get(array_filter(['posts.id', 'posts.user_id', 'posts.created_at', $when ? $when.' as set_at' : null]));
                 foreach ($best as $post) {
                     $rows[] = $this->row((int) $post->user_id, 'best_answer', (int) $post->id, 0, $xp('best_answer'), $post->set_at ?? $post->created_at);
@@ -241,7 +281,7 @@ class Replay
 
     private function kudos(int $from, int $to): void
     {
-        if ($this->settings->xp('kudos') <= 0) {
+        if ($this->settings->xp('kudos') <= 0 || ! $this->extensions->isEnabled('ernestdefoe-kudos')) {
             return;
         }
 

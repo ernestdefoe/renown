@@ -234,6 +234,49 @@ class RenownTest extends TestCase
         $this->assertSame(0, $this->xp(self::BO, 'like'));
     }
 
+    #[Test]
+    public function hiding_and_restoring_never_earns_more_than_the_post_did(): void
+    {
+        $this->set('cap_daily', 15);
+        $this->app();
+        $this->reply(self::BO);            // 5 visit + 10 reply = the cap
+        $capped = $this->reply(self::BO);  // earns nothing
+        $this->assertSame(15, (int) $this->user(self::BO)->renown_xp);
+
+        // The author hides their own capped-out post and brings it back: still nothing.
+        foreach ([true, false] as $hidden) {
+            [$status] = $this->api('PATCH', '/posts/'.$capped, self::MO, ['data' => ['type' => 'posts', 'id' => (string) $capped, 'attributes' => ['isHidden' => $hidden]]]);
+            $this->assertSame(200, $status);
+        }
+        $this->assertSame(15, (int) $this->user(self::BO)->renown_xp);
+    }
+
+    #[Test]
+    public function moving_a_discussion_into_an_excluded_tag_takes_its_xp_back_and_out_again_restores_it(): void
+    {
+        $this->extension('flarum-tags');
+        $this->prepareDatabase([
+            'tags' => [
+                ['id' => 1, 'name' => 'General', 'slug' => 'general', 'position' => 0],
+                ['id' => 2, 'name' => 'Games', 'slug' => 'games', 'position' => 1],
+            ],
+            'discussion_tag' => [['discussion_id' => 1, 'tag_id' => 1]],
+            'group_permission' => [['permission' => 'discussion.tag', 'group_id' => Group::MODERATOR_ID]],
+        ]);
+        $this->set('exclude_tags', json_encode([2]));
+        $this->app();
+        $this->reply(self::BO);
+        $this->assertSame(15, (int) $this->user(self::BO)->renown_xp);
+
+        $tag = fn (int $id) => $this->api('PATCH', '/discussions/1', 1, ['data' => ['type' => 'discussions', 'id' => '1', 'relationships' => ['tags' => ['data' => [['type' => 'tags', 'id' => (string) $id]]]]]]);
+        [$status, $body] = $tag(2);
+        $this->assertSame(200, $status, json_encode($body));
+        $this->assertSame(5, (int) $this->user(self::BO)->renown_xp, 'the reply is out of scope; the visit stays');
+
+        $tag(1);
+        $this->assertSame(15, (int) $this->user(self::BO)->renown_xp);
+    }
+
     // ---------------------------------------------------------------- prestige
 
     #[Test]
@@ -284,6 +327,38 @@ class RenownTest extends TestCase
         $this->assertSame([0, 1, 100005], [(int) $bo->renown_xp, (int) $bo->renown_level, (int) $bo->renown_lifetime_xp]);
     }
 
+    #[Test]
+    public function eternal_keeps_the_xp_of_the_climb_that_reached_it_when_totals_are_recomputed(): void
+    {
+        $this->app();
+        $this->database()->table(Ledger::TABLE)->insert(['user_id' => self::BO, 'source' => 'reply', 'subject_id' => 777, 'actor_id' => 0, 'xp' => 95000, 'prestige' => 20, 'day' => 1, 'backfilled' => true, 'created_at' => Carbon::now()]);
+        $this->database()->table('users')->where('id', self::BO)->update(['renown_xp' => 95000, 'renown_lifetime_xp' => 95000, 'renown_level' => 100, 'renown_prestige' => 20]);
+        $this->api('POST', '/renown/prestige', self::BO);
+
+        $this->app()->getContainer()->make(Ledger::class)->recompute([self::BO]);
+        $bo = $this->user(self::BO);
+        $this->assertSame([21, 100], [(int) $bo->renown_prestige, (int) $bo->renown_level]);
+        $this->assertGreaterThanOrEqual(95000, (int) $bo->renown_xp);
+    }
+
+    #[Test]
+    public function a_rebuild_never_replays_activity_after_install(): void
+    {
+        $this->set('cap_daily', 15);
+        $replay = $this->app()->getContainer()->make(Replay::class);
+        // Install: history ends at post 1.
+        $this->app()->getContainer()->make(SettingsRepositoryInterface::class)->delete(Replay::BOUNDARY);
+        $replay->boundary();
+
+        $this->reply(self::BO);
+        $this->reply(self::BO); // capped out: no log row
+        $replay->request(true);
+        $replay->run(30);
+
+        $this->assertSame(15, (int) $this->user(self::BO)->renown_xp);
+        $this->assertSame(25, (int) $this->user(self::AVA)->renown_xp, 'history (before install) still replayed');
+    }
+
     // ---------------------------------------------------------------- replay
 
     #[Test]
@@ -298,6 +373,8 @@ class RenownTest extends TestCase
         foreach (array_chunk($rows, 300) as $chunk) {
             $this->database()->table('posts')->insert($chunk);
         }
+        // Install happens now: all of this is history.
+        $this->app()->getContainer()->make(SettingsRepositoryInterface::class)->delete(Replay::BOUNDARY);
         $replay->request();
         $replay->run(30);
         $this->assertFalse($replay->pending());

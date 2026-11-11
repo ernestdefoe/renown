@@ -2,6 +2,7 @@
 
 namespace ErnestDefoe\Renown\Integration;
 
+use Carbon\Carbon;
 use ErnestDefoe\Renown\Activity;
 use ErnestDefoe\Renown\Ledger;
 use Flarum\Post\Post;
@@ -26,6 +27,7 @@ class Answers
 
     public function accepted(object $event): void
     {
+        $this->activity->onlyBestAnswer($event->post);
         $this->activity->bestAnswer($event->post);
     }
 
@@ -41,10 +43,16 @@ class Answers
         }
 
         if ($event->points > 0) {
-            $log = $this->db->table('answers_reputation_log')->where('user_id', $event->userId)->where('reason', 'upvote')
-                ->orderByDesc('id')->first(['post_id', 'actor_id']);
-            if ($log && $log->post_id && $log->actor_id && ($post = Post::query()->find($log->post_id))) {
-                $this->activity->upvoted($post, (int) $log->actor_id);
+            // Every upvote logged for this member in the last minute (two can land at once);
+            // the ones already counted are ignored by the log's unique key.
+            $logs = $this->db->table('answers_reputation_log')->where('user_id', $event->userId)->where('reason', 'upvote')
+                ->where('created_at', '>=', Carbon::now()->subMinute())
+                ->whereNotNull('post_id')->whereNotNull('actor_id')
+                ->get(['post_id', 'actor_id'])->unique(fn ($l) => $l->post_id.':'.$l->actor_id);
+            foreach ($logs as $log) {
+                if ($post = Post::query()->find($log->post_id)) {
+                    $this->activity->upvoted($post, (int) $log->actor_id);
+                }
             }
 
             return;
