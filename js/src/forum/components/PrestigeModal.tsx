@@ -3,8 +3,8 @@ import Modal, { type IInternalModalAttrs } from 'flarum/common/components/Modal'
 import Button from 'flarum/common/components/Button';
 import type Mithril from 'mithril';
 import Emblem from '../../common/Emblem';
-import { ETERNAL } from '../../common/curve';
-import { tierName } from '../../common/names';
+import { ETERNAL, MAX_LEVEL } from '../../common/curve';
+import { levelLabel, tierName } from '../../common/names';
 import { api, t } from '../util';
 
 interface Attrs extends IInternalModalAttrs {
@@ -33,11 +33,11 @@ export default class PrestigeModal extends Modal<Attrs> {
           <Emblem tier={this.attrs.tier} size={96} />
         </div>
         {eternal ? (
-          <p>{t('prestige.eternal_text')}</p>
+          <p>{t('prestige.eternal_text', { top: levelLabel(MAX_LEVEL) })}</p>
         ) : (
           <ul className="RenownPrestigeModal-list">
             <li>
-              <strong>{t('prestige.resets')}</strong> {t('prestige.resets_text')}
+              <strong>{t('prestige.resets')}</strong> {t('prestige.resets_text', { first: levelLabel(1) })}
             </li>
             <li>
               <strong>{t('prestige.keeps')}</strong> {t('prestige.keeps_text')}

@@ -100,10 +100,10 @@ export default class RenownUserPage extends UserPage {
         ) : (
           <div className="RenownReady">
             {eternal ? (
-              <p className="RenownReady-text">{t('profile.eternal')}</p>
+              <p className="RenownReady-text">{t('profile.eternal', { top: levelLabel(MAX_LEVEL) })}</p>
             ) : p.canPrestige ? (
               <>
-                <p className="RenownReady-text">{t('profile.ready_self', { tier: tierName(p.prestige + 1) })}</p>
+                <p className="RenownReady-text">{t('profile.ready_self', { tier: tierName(p.prestige + 1), first: levelLabel(1), top: levelLabel(MAX_LEVEL) })}</p>
                 <Button className="Button Button--primary" icon="fas fa-star" onclick={() => this.openPrestige()}>
                   {t(p.prestige + 1 >= ETERNAL ? 'prestige.button_eternal' : 'prestige.button')}
                 </Button>

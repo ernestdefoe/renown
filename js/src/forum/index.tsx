@@ -117,7 +117,7 @@ app.initializers.add('ernestdefoe/renown', () => {
       Button.component(
         {
           icon: 'fas fa-medal',
-          onclick: () => app.modal.show(() => import('./components').then((ui) => ui.AdjustModal), { user }),
+          onclick: () => app.modal.show(() => import('./components').then((ui) => ({ default: ui.AdjustModal })), { user }),
         },
         t('adjust.control')
       )

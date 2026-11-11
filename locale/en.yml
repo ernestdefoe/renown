@@ -81,8 +81,8 @@ ernestdefoe-renown:
       prestige_tier: "Prestige {n}, {name}"
       to_next: "To {rank}"
       progress: "{xp} / {next} XP"
-      eternal: "Eternal: every climb is done. This member keeps Immortal V and the Eternal emblem for good."
-      ready_self: "You reached Level 100. Take Prestige to start again at Newcomer I and earn the {tier} emblem. It's your choice: you can stay at Immortal V as long as you like."
+      eternal: "Eternal: every climb is done. This member keeps {top} and the Eternal emblem for good."
+      ready_self: "You reached Level 100. Take Prestige to start again at {first} and earn the {tier} emblem. It's your choice: you can stay at {top} as long as you like."
       ready_other: "Level 100 reached. Prestige is ready whenever this member chooses."
       banked: "{xp} XP past Level 100 banked: it counts toward lifetime XP."
       lifetime: Lifetime XP
@@ -109,12 +109,12 @@ ernestdefoe-renown:
       title: "Take Prestige: {tier}?"
       title_eternal: Become Eternal?
       resets: "Resets:"
-      resets_text: You go back to Newcomer I, Level 1, and climb again. XP past Level 100 goes with it.
+      resets_text: "You go back to {first}, Level 1, and climb again. XP past Level 100 goes with it."
       keeps: "Keeps:"
       keeps_text: Your lifetime XP, every emblem you've earned and rewards marked permanent.
       earns: "Earns:"
       earns_text: "The {tier} emblem, shown beside your rank everywhere."
-      eternal_text: The last emblem. No more resets after this one. You keep Immortal V and the Eternal emblem for good.
+      eternal_text: "The last emblem. No more resets after this one. You keep {top} and the Eternal emblem for good."
       confirm: Take Prestige
       confirm_eternal: Become Eternal
       cancel: Not now
@@ -156,7 +156,7 @@ ernestdefoe-renown:
       ernestdefoe-answers: Answers
     status:
       heading: Status
-      replay_help: "When Renown is installed, every member gets the XP their past activity earned: no daily caps or cooldowns apply to history, only to activity after install. Nobody is moved into Prestige automatically: a member whose history is worth more than Level 100 sits at Immortal V with the extra XP banked, and Prestige is ready for them to take. The replay runs in the background (the scheduler, this page while it's open, or php flarum renown:rebuild)."
+      replay_help: "When Renown is installed, every member gets the XP their past activity earned: no daily caps or cooldowns apply to history, only to activity after install. Nobody is moved into Prestige automatically: a member whose history is worth more than Level 100 sits at Level 100 (the top rank) with the extra XP banked, and Prestige is ready for them to take. The replay runs in the background (the scheduler, this page while it's open, or php flarum renown:rebuild)."
       replaying: "Replaying history: {progress}%"
       replayed: History replayed. New activity earns XP as it happens.
       members: members with XP
@@ -165,7 +165,7 @@ ernestdefoe-renown:
       rebuild: Replay history again
       reset: Reset everyone to zero
       confirm_rebuild: "Replay history again with the XP values saved now? XP earned since install stays, and so does every Prestige."
-      confirm_reset: "Reset everyone to Newcomer I with no XP, no Prestige and no emblems? This can't be undone, and history is not replayed."
+      confirm_reset: "Reset everyone to Level 1 with no XP, no Prestige and no emblems? This can't be undone, and history is not replayed."
     sources:
       heading: XP for each action
       help: How much XP each action earns. 0 turns it off. Sources from other extensions appear when that extension is enabled.
@@ -203,6 +203,8 @@ ernestdefoe-renown:
       icon: Icon
       upload: Upload an icon
       remove_icon: Remove the icon
+      icon_type: Upload a PNG, JPG, WebP or GIF under 4 MB.
+      icon_failed: The icon couldn't be saved. Try again.
       reward: Group reward
       no_group: No group
       permanent: Keep for good
