@@ -33,12 +33,20 @@ class Activity
     /** A new comment, or one that was just approved (not the author's visit then: a moderator approved it). */
     public function posted(Post $post, bool $visit = true): void
     {
+        // Approving a discussion's first post approves the discussion too, but Approval does that
+        // in its own listener: until it saves, the discussion still looks private. Count it then.
+        $discussion = $post->discussion;
+        if (! $visit && (int) $post->number === 1 && $discussion && $discussion->getAttribute('is_approved') === false) {
+            $discussion->afterSave(fn () => $this->posted($post, false));
+
+            return;
+        }
+
         $author = $post->user;
         if (! $author || ! $this->counts($post)) {
             return;
         }
 
-        $discussion = $post->discussion;
         $first = (int) $post->id === (int) $discussion->first_post_id || (int) $post->number === 1;
         $source = $first ? 'discussion' : 'reply';
 
@@ -178,9 +186,17 @@ class Activity
         }
     }
 
-    /** A discussion was retagged: out of scope (an excluded tag) takes its XP back, back in scope restores it. */
-    public function retagged(Discussion $discussion): void
+    /**
+     * A discussion moved: retagged (into or out of an excluded tag) or made
+     * private or public (FoF Byobu). Out of scope takes its XP back, back in
+     * scope restores exactly that. Read afresh: is_private is worked out on save.
+     */
+    public function rescope(Discussion $discussion): void
     {
+        $discussion = Discussion::query()->find($discussion->id);
+        if (! $discussion) {
+            return;
+        }
         $ids = $discussion->posts()->whereNull('hidden_at')->pluck('id')->map(fn ($id) => (int) $id)->all();
         $this->discussionCounts($discussion) ? $this->restore($ids) : $this->takeBack($ids, true);
     }

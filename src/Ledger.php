@@ -199,6 +199,7 @@ class Ledger
             $byUser[(int) $row->user_id][] = (int) $row->id;
         }
 
+        $results = [];
         foreach ($byUser as $userId => $ids) {
             $result = $this->db->transaction(function () use ($userId, $ids, $change) {
                 $row = $this->lock($userId);
@@ -206,10 +207,14 @@ class Ledger
 
                 return $row && $rows->isNotEmpty() ? $change($row, $rows) : null;
             });
-
-            if ($result && ($user = User::query()->find($userId))) {
-                $this->publish($user, $result, true);
+            if ($result) {
+                $results[$userId] = $result;
             }
+        }
+
+        // The members, in one query, once their totals are written.
+        foreach ($results ? User::query()->whereIn('id', array_keys($results))->get() : [] as $user) {
+            $this->publish($user, $results[$user->id], true);
         }
     }
 

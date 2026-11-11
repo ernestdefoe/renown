@@ -153,7 +153,7 @@ return [
         ])
         ->whenExtensionEnabled('flarum-tags', fn () => [
             (new Extend\Event())
-                ->listen(\Flarum\Tags\Event\DiscussionWasTagged::class, fn ($e) => resolve(Activity::class)->retagged($e->discussion)),
+                ->listen(\Flarum\Tags\Event\DiscussionWasTagged::class, fn ($e) => resolve(Activity::class)->rescope($e->discussion)),
         ])
         ->whenExtensionEnabled('fof-best-answer', fn () => [
             (new Extend\Event())

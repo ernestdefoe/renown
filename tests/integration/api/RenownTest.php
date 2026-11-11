@@ -69,6 +69,16 @@ class RenownTest extends TestCase
 
     // ---------------------------------------------------------------- helpers
 
+    /** @return list<string> */
+    protected function allowedRepeatedQueries(): array
+    {
+        // FoF Byobu loads each recipient on its own when recipients change (the same request
+        // without Renown shows it): not Renown's, and only in the Byobu test.
+        $g = $this->database()->getQueryGrammar();
+
+        return ['select * from '.$g->wrapTable('users').' where '.$g->wrap('users.id').' = ?'];
+    }
+
     /** @return array{int, array<string, mixed>|null} */
     private function api(string $method, string $path, ?int $as, array $body = []): array
     {
@@ -557,6 +567,46 @@ class RenownTest extends TestCase
         $response = $this->send($this->request('POST', '/api/renown/icons/ranks/1', ['authenticatedAs' => 1])->withUploadedFiles(['icon' => $file]));
         $this->assertSame(422, $response->getStatusCode());
         $this->assertStringContainsString('renown_icon_type', (string) $response->getBody());
+    }
+
+    #[Test]
+    public function making_a_discussion_private_with_byobu_takes_its_xp_back_and_public_again_restores_it(): void
+    {
+        $this->extension('flarum-tags', 'fof-byobu');
+        $this->setting('fof-byobu.makePublic', '1');
+        $this->app();
+        $this->reply(self::BO);
+        $this->assertSame(15, (int) $this->user(self::BO)->renown_xp);
+
+        // Byobu makes a discussion public only when asked to (`public`); emptying the recipients otherwise hides it.
+        $recipients = fn (array $ids) => $this->api('PATCH', '/discussions/1', 1, ['data' => ['type' => 'discussions', 'id' => '1', 'attributes' => $ids ? [] : ['public' => '1'], 'relationships' => [
+            'recipientUsers' => ['data' => array_map(fn ($id) => ['type' => 'users', 'id' => (string) $id], $ids)],
+        ]]]);
+        [$status, $body] = $recipients([self::BO, self::AVA, 1]);
+        $this->assertSame(200, $status, json_encode($body));
+        $this->assertTrue((bool) $this->database()->table('discussions')->where('id', 1)->value('is_private'));
+        $this->assertSame(5, (int) $this->user(self::BO)->renown_xp, 'private now: the reply goes, the visit stays');
+
+        [$status, $body] = $recipients([]);
+        $this->assertSame(200, $status, substr(json_encode($body), 0, 400));
+        $this->assertFalse((bool) $this->database()->table('discussions')->where('id', 1)->value('is_private'));
+        $this->assertSame(15, (int) $this->user(self::BO)->renown_xp);
+    }
+
+    #[Test]
+    public function approving_the_first_post_of_a_queued_discussion_earns_it(): void
+    {
+        $this->extension('flarum-flags', 'flarum-approval');
+        $this->prepareDatabase([
+            Discussion::class => [['id' => 2, 'title' => 'Waiting for a moderator', 'slug' => 'waiting', 'user_id' => self::CY, 'created_at' => Carbon::now()->subDay(), 'first_post_id' => 2, 'comment_count' => 1, 'last_post_number' => 1, 'is_private' => 1, 'is_approved' => 0]],
+            Post::class => [['id' => 2, 'discussion_id' => 2, 'user_id' => self::CY, 'type' => 'comment', 'number' => 1, 'content' => '<t><p>My first discussion, held for approval.</p></t>', 'created_at' => Carbon::now()->subDay(), 'is_private' => 1, 'is_approved' => 0]],
+        ]);
+        $this->app();
+
+        [$status, $body] = $this->api('PATCH', '/posts/2', 1, ['data' => ['type' => 'posts', 'id' => '2', 'attributes' => ['isApproved' => true]]]);
+        $this->assertSame(200, $status, json_encode($body));
+        $this->assertSame(20, $this->xp(self::CY, 'discussion'));
+        $this->assertSame(0, $this->xp(self::CY, 'visit'), 'an approval is not the author visiting');
     }
 
     // ---------------------------------------------------------------- board, profile, staff
