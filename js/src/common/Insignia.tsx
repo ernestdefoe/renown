@@ -87,12 +87,13 @@ export default class Insignia extends Component<InsigniaAttrs> {
     return (
       <span className={'RenownInsignia RenownInsignia--' + family.key} title={this.attrs.decorative ? undefined : label}>
         {art}
+        {/* The family's darker shade: its light one vanished on a white page (silver). */}
         {this.attrs.grade ? (
           <span className="RenownInsignia-grade" aria-hidden="true">
             {[1, 2, 3, 4, 5].map((g) => (
               <span
                 className={'RenownInsignia-pip' + (g <= gradeOf(level) ? ' is-on' : '')}
-                style={g <= gradeOf(level) ? { background: family.top } : undefined}
+                style={g <= gradeOf(level) ? { background: family.bottom } : undefined}
               />
             ))}
           </span>
