@@ -146,6 +146,14 @@ html:not(#x-hi) .RenownPostBadge {
   text-align: right;
   white-space: nowrap;
 }
+.RenownBoard-lifetime,
+.RenownBoard-climb {
+  display: block;
+}
+.RenownBoard-climb {
+  font-size: 11px;
+  opacity: 0.8;
+}
 .RenownBoard-empty {
   color: var(--muted-color);
 }
@@ -190,6 +198,10 @@ html:not(#x-hi) .RenownMember {
   }
   .RenownBoard-xp {
     grid-area: xp;
+  }
+  // Too narrow for a second line beside the name: the climb XP stays in the tooltip.
+  .RenownBoard-climb {
+    display: none;
   }
 }
 

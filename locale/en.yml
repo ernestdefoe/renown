@@ -71,6 +71,7 @@ ernestdefoe-renown:
       period_all: All time
       period_month: This month
       xp: "{xp} XP"
+      climb: "{xp} this climb"
       gained: "+{xp} XP"
       empty: Nobody has earned XP yet.
       more: Show more
@@ -180,9 +181,9 @@ ernestdefoe-renown:
       answer_upvote: Upvote received (Answers)
     rules:
       heading: Anti-farming
-      help: These apply to activity after install, never to the history replay. A running Double XP event multiplies the caps too. 0 turns a rule off.
+      help: These apply to activity after install, never to the history replay. A running Double XP event multiplies the caps too. 0 turns a rule off. Days reset at midnight UTC, for the caps and the daily visit.
       cap_daily: Daily XP cap
-      cap_daily_help: The most XP a member can earn in a day (UTC), all sources together. Staff adjustments don't count.
+      cap_daily_help: The most XP a member can earn in a day, all sources together. Staff adjustments don't count.
       cap_likes: Daily cap for likes received
       cap_likes_help: The most XP a member can earn from likes in a day.
       likes_per_giver: Likes counted per member per day

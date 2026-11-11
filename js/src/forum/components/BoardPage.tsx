@@ -110,8 +110,18 @@ export default class BoardPage extends Page {
                   <span className="RenownBoard-pos">{row.position}</span>
                   {MemberCell(row)}
                   <span className="RenownBoard-standing">{Standing(row)}</span>
-                  <span className="RenownBoard-xp">
-                    {this.period === 'month' ? t('board.gained', { xp: number(row.gained || 0) }) : t('board.xp', { xp: number(row.xp) })}
+                  <span
+                    className="RenownBoard-xp"
+                    title={this.period === 'all' && row.prestige > 0 ? tx('board.climb', { xp: number(row.xp) }) : undefined}
+                  >
+                    {this.period === 'month' ? (
+                      t('board.gained', { xp: number(row.gained || 0) })
+                    ) : (
+                      <>
+                        <span className="RenownBoard-lifetime">{t('board.xp', { xp: number(row.lifetime) })}</span>
+                        {row.prestige > 0 ? <span className="RenownBoard-climb">{t('board.climb', { xp: number(row.xp) })}</span> : null}
+                      </>
+                    )}
                   </span>
                 </li>
               ))}
