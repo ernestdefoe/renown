@@ -91,118 +91,562 @@ html:not(#x-hi) .RenownPostBadge {
   min-width: 0;
 }
 
-// Leaderboard
-.RenownBoard-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-.RenownBoard-title {
-  margin: 0;
-  font-size: 20px;
+// Leaderboard. The stage is a dark surface of its own (like a hero image), tinted with
+// the forum's primary colour, so every colour on it is set here; everything else
+// comes from Flarum's custom properties. Links start with html:not(#x-hi) to beat themes.
+@keyframes renown-spin { to { transform: rotate(360deg); } }
+@keyframes renown-twinkle { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+@keyframes renown-rise { from { transform: translateY(14px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+.RenownBoard {
+  --renown-stage: color-mix(in srgb, var(--primary-color) 22%, #06080e);
   color: var(--text-color);
 }
-.RenownBoard-tabs {
-  display: flex;
-  gap: 6px;
-}
-.RenownBoard-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  border-radius: var(--border-radius);
+.RenownBoard-short { display: none; }
+.RenownStage {
+  position: relative;
   overflow: hidden;
-  border: 1px solid var(--control-bg);
+  border-radius: 24px;
+  padding: 28px 30px 0;
+  color: #fff;
+  background: radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--primary-color) 70%, #0a0d16), var(--renown-stage) 70%);
+  box-shadow: 0 24px 60px -24px color-mix(in srgb, var(--primary-color) 60%, #000);
+  .LoadingIndicator { color: #fff; }
 }
-.RenownBoard-row {
-  display: grid;
-  grid-template-columns: 36px minmax(0, 1fr) minmax(0, 220px) 110px;
-  gap: 12px;
-  align-items: center;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--control-bg);
-  color: var(--text-color);
-  &:last-child {
-    border-bottom: 0;
-  }
-  &.is-me {
-    background: var(--control-bg);
-  }
+.RenownStage-stars {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.7;
+  background-image: radial-gradient(1.5px 1.5px at 24px 36px, #fff, transparent), radial-gradient(1px 1px at 120px 90px, #fff, transparent),
+    radial-gradient(1.2px 1.2px at 200px 20px, #ffe9a8, transparent), radial-gradient(1px 1px at 70px 160px, #fff, transparent),
+    radial-gradient(1.4px 1.4px at 170px 140px, #cfe3ff, transparent);
+  background-size: 230px 190px;
+  animation: renown-twinkle 5s ease-in-out infinite;
 }
-.RenownBoard-pos {
-  font-weight: 700;
-  color: var(--muted-color);
-  text-align: center;
+.RenownStage-beam {
+  position: absolute;
+  left: 50%;
+  top: -30px;
+  width: 520px;
+  height: 560px;
+  transform: translateX(-50%);
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0) 78%);
+  clip-path: polygon(41% 0, 59% 0, 100% 100%, 0 100%);
 }
-.RenownBoard-standing {
-  min-width: 0;
-}
-.RenownBoard-xp {
-  font-size: 13px;
-  color: var(--muted-color);
-  text-align: right;
-  white-space: nowrap;
-}
-.RenownBoard-lifetime,
-.RenownBoard-climb {
-  display: block;
-}
-.RenownBoard-climb {
-  font-size: 11px;
-  opacity: 0.8;
-}
-.RenownBoard-empty {
-  color: var(--muted-color);
-}
-.RenownBoard-more {
-  text-align: center;
-  margin-top: 16px;
-}
-html:not(#x-hi) .RenownMember {
+.RenownStage-top {
+  position: relative;
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.RenownStage-heading { min-width: 0; }
+.RenownStage-kicker {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #ffe08a;
+}
+html:not(#x-hi) .RenownStage-title {
+  margin: 6px 0 0;
+  font-size: 38px;
+  line-height: 1.05;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  color: #fff;
+}
+.RenownStage-sub {
+  margin: 8px 0 0;
+  max-width: 520px;
+  font-size: 13.5px;
+  color: rgba(255, 255, 255, 0.75);
+}
+.RenownStage-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+html:not(#x-hi) .RenownStage-tab {
+  border: 0;
+  min-height: 38px;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  &.is-active {
+    background: #fff;
+    color: #0d1220;
+  }
+  &:focus-visible { outline: 2px solid #ffe08a; outline-offset: 2px; }
+}
+html:not(#x-hi) .RenownStage-cta {
+  position: relative;
+  margin-top: 16px;
+  min-height: 40px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  background: #fff;
+  color: #0d1220;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.RenownPodium {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 14px;
+  align-items: end;
+  margin-top: 26px;
+}
+html:not(#x-hi) .RenownPodium-place {
   min-width: 0;
-  color: var(--text-color);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  color: #fff;
   text-decoration: none;
-  font-weight: 600;
+  animation: renown-rise 0.6s ease-out both;
+  &.is-1 { animation-delay: 0.1s; }
+  &.is-2 { animation-delay: 0.25s; }
+  &.is-3 { animation-delay: 0.4s; }
 }
-.RenownMember-avatar {
-  --size: 32px;
-  flex: none;
+.RenownPodium-crown {
+  color: #ffd43b;
+  filter: drop-shadow(0 0 10px rgba(255, 212, 59, 0.7));
+  margin-bottom: 4px;
 }
-.RenownMember-name {
+.RenownPodium-avatar {
+  position: relative;
+  margin-bottom: 14px;
+}
+.RenownPodium-img {
+  --size: 96px;
+  position: relative;
+  z-index: 1;
+  font-size: 38px;
+  box-shadow: 0 0 0 4px #0b0f1a, 0 0 0 8px var(--ring), 0 12px 30px rgba(0, 0, 0, 0.45);
+  .is-1 & { --size: 132px; font-size: 52px; }
+}
+.RenownPodium-halo {
+  position: absolute;
+  inset: -26px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--ring) 60%, transparent), transparent);
+  filter: blur(4px);
+}
+.RenownPodium-spin {
+  position: absolute;
+  inset: -13px;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, var(--ring), transparent 25%, rgba(255, 255, 255, 0.55) 40%, transparent 55%, var(--ring) 75%, transparent 90%, var(--ring));
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+  animation: renown-spin 7s linear infinite;
+}
+.RenownPodium-insignia {
+  position: absolute;
+  z-index: 2;
+  right: -14px;
+  bottom: -10px;
+  line-height: 0;
+  filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.5));
+}
+.RenownPodium-name {
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 19px;
+  font-weight: 800;
+  .is-1 > & { font-size: 22px; }
+}
+.RenownPodium-rank {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.8);
+}
+.RenownPodium-tier {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px 3px 4px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #fff;
+  background: color-mix(in srgb, var(--ring) 28%, rgba(255, 255, 255, 0.06));
+  border: 1px solid color-mix(in srgb, var(--ring) 60%, transparent);
+  .RenownEmblem { line-height: 0; }
+}
+.RenownPodium-xp {
+  margin-top: 10px;
+  font-size: 26px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  .is-1 > & { font-size: 30px; }
+}
+.RenownPodium-sub {
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #a6f0b4;
+  &.is-quiet { color: rgba(255, 255, 255, 0.65); font-weight: 500; }
+}
+.RenownPodium-ghost {
+  width: 72px;
+  height: 72px;
+  margin-bottom: 4px;
+  border-radius: 50%;
+  border: 2px dashed rgba(255, 255, 255, 0.45);
+  display: grid;
+  place-items: center;
+  font-size: 26px;
+  color: rgba(255, 255, 255, 0.75);
+  .is-1 > & { width: 96px; height: 96px; }
+}
+.RenownPodium-open {
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffe08a;
+}
+.RenownPodium-plinth {
+  align-self: stretch;
+  height: 72px;
+  margin-top: 16px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px 14px 0 0;
+  background: linear-gradient(180deg, #f3c191, #a8642f);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.55), inset 0 -20px 40px rgba(0, 0, 0, 0.18);
+  b {
+    font-size: 60px;
+    font-weight: 900;
+    line-height: 1;
+    color: rgba(20, 16, 8, 0.55);
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45);
+  }
+  .is-1 > & { height: 132px; background: linear-gradient(180deg, #ffe9a3, #c9971c); b { font-size: 80px; } }
+  .is-2 > & { height: 96px; background: linear-gradient(180deg, #f1f4f8, #9aa5b3); }
+  .is-open > & { opacity: 0.35; }
+}
+
+.RenownRising {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 22px 0 6px;
+}
+html:not(#x-hi) .RenownRising-title {
+  margin: 0 6px 0 0;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted-color);
+}
+.RenownRising-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-width: 0;
+}
+html:not(#x-hi) .RenownRising-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 5px 12px 5px 5px;
+  border-radius: 999px;
+  background: var(--body-bg);
+  border: 1px solid var(--control-bg);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  color: var(--text-color);
+  font-weight: 700;
+  text-decoration: none;
+  em { font-style: normal; font-weight: 800; color: var(--text-color); }
+}
+.RenownRising-avatar { --size: 28px; flex: none; }
+.RenownRising-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.RenownBoard-list {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.RenownRow {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1.5fr) minmax(0, 1.25fr) 96px 140px;
+  gap: 18px;
+  align-items: center;
+  padding: 14px 20px;
+  border-radius: 16px;
+  background: var(--body-bg);
+  border: 1px solid var(--control-bg);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+  color: var(--text-color);
+  transition: transform 0.15s, box-shadow 0.15s;
+  &:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(0, 0, 0, 0.1); }
+  &.is-me {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary-color) 25%, transparent);
+  }
+}
+.RenownRow-pos {
+  text-align: center;
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted-color);
+}
+html:not(#x-hi) .RenownRow-member {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  color: var(--text-color);
+  text-decoration: none;
+}
+.RenownRow-avatar {
+  --size: 48px;
+  flex: none;
+  font-size: 19px;
+  box-shadow: 0 0 0 2px var(--body-bg), 0 0 0 4px var(--ring);
+}
+.RenownRow-who {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.RenownRow-name {
+  font-size: 16px;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.RenownRow-rankline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+}
+.RenownRow-rank {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+  max-width: 100%;
+  padding: 2px 9px 2px 3px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--text-color);
+  background: color-mix(in srgb, var(--fam) 16%, var(--body-bg));
+  border: 1px solid color-mix(in srgb, var(--fam) 40%, var(--body-bg));
+  .RenownInsignia { line-height: 0; }
+}
+.RenownRow-tier {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--muted-color);
+  .RenownEmblem { line-height: 0; }
+}
+.RenownBar {
+  display: block;
+  height: 9px;
+  border-radius: 99px;
+  overflow: hidden;
+  background: var(--control-bg);
+}
+.RenownBar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  box-shadow: 0 0 12px color-mix(in srgb, var(--fam) 55%, transparent);
+}
+.RenownRow-progress { min-width: 0; }
+.RenownRow-next {
+  display: block;
+  margin-top: 7px;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--muted-color);
+}
+.RenownRow-trend {
+  justify-self: start;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-color);
+  background: color-mix(in srgb, var(--primary-color) 14%, var(--body-bg));
+  &.is-quiet { background: transparent; padding: 5px 0; font-weight: 600; color: var(--muted-color); }
+}
+.RenownRow-xp {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: right;
+  b { font-size: 18px; font-weight: 900; font-variant-numeric: tabular-nums; color: var(--text-color); }
+  small { font-size: 12px; color: var(--muted-color); }
+}
+.RenownBoard-more {
+  text-align: center;
+  margin: 18px 0 6px;
+}
+
+.RenownYou {
+  position: sticky;
+  bottom: 12px;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1.4fr) minmax(0, 1.6fr) auto;
+  gap: 18px;
+  align-items: center;
+  margin-top: 16px;
+  padding: 14px 20px;
+  border-radius: 18px;
+  color: #fff;
+  background: linear-gradient(100deg, color-mix(in srgb, var(--primary-color) 75%, #05070c), color-mix(in srgb, var(--primary-color) 90%, #05070c));
+  box-shadow: 0 16px 40px -10px color-mix(in srgb, var(--primary-color) 70%, #000);
+  .RenownBar { background: rgba(255, 255, 255, 0.22); }
+  .RenownBar-fill { background: #fff; box-shadow: 0 0 12px rgba(255, 255, 255, 0.7); }
+}
+.RenownYou-pos {
+  text-align: center;
+  font-size: 20px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+.RenownYou-member {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.RenownYou-avatar { --size: 44px; flex: none; box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.9); }
+.RenownYou-who { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.RenownYou-name { font-size: 16px; font-weight: 800; }
+.RenownYou-rank { font-size: 12px; color: rgba(255, 255, 255, 0.85); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.RenownYou-progress { min-width: 0; }
+.RenownYou-line { display: block; margin-top: 7px; font-size: 13px; font-weight: 600; }
+html:not(#x-hi) .RenownYou-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: #fff;
+  color: #0d1220;
+  font-weight: 800;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .RenownStage-stars,
+  .RenownPodium-spin,
+  html:not(#x-hi) .RenownPodium-place { animation: none; }
+  .RenownRow { transition: none; &:hover { transform: none; } }
 }
 
 @media (max-width: 767px) {
-  .RenownBoard-row {
-    grid-template-columns: 28px minmax(0, 1fr) auto;
-    grid-template-areas: "pos member xp" "pos standing standing";
-    row-gap: 4px;
+  .RenownBoard-full { display: none; }
+  .RenownBoard-short { display: inline; }
+  .RenownStage { padding: 18px 14px 0; border-radius: 20px; }
+  .RenownStage-beam { width: 300px; top: 60px; }
+  html:not(#x-hi) .RenownStage-title { font-size: 28px; }
+  .RenownStage-sub { font-size: 12px; }
+  .RenownStage-tabs { flex-wrap: nowrap; width: 100%; overflow-x: auto; }
+  html:not(#x-hi) .RenownStage-tab { flex: 1 0 auto; padding: 0 10px; min-height: 40px; font-size: 12.5px; }
+  .RenownPodium { gap: 6px; margin-top: 18px; grid-template-columns: minmax(0, 1fr) minmax(0, 1.12fr) minmax(0, 1fr); }
+  .RenownPodium-img { --size: 56px; font-size: 22px; box-shadow: 0 0 0 3px #0b0f1a, 0 0 0 6px var(--ring), 0 8px 20px rgba(0, 0, 0, 0.45); .is-1 & { --size: 76px; font-size: 30px; } }
+  .RenownPodium-halo { inset: -18px; }
+  .RenownPodium-spin { inset: -10px; }
+  .RenownPodium-insignia { right: -10px; bottom: -7px; svg, img { width: 28px; height: 28px; } }
+  .RenownPodium-avatar { margin-bottom: 10px; }
+  .RenownPodium-crown { width: 26px; height: 18px; }
+  .RenownPodium-name { font-size: 14px; .is-1 > & { font-size: 15px; } }
+  .RenownPodium-rank { flex-wrap: nowrap; max-width: 100%; overflow: hidden; white-space: nowrap; font-size: 10.5px; gap: 3px; }
+  .RenownPodium-tier { padding: 0; background: none; border: 0; > span { display: none; } }
+  .RenownPodium-xp { margin-top: 6px; font-size: 15px; .is-1 > & { font-size: 17px; } }
+  .RenownPodium-sub { font-size: 10.5px; white-space: nowrap; }
+  .RenownPodium-ghost { width: 48px; height: 48px; font-size: 20px; .is-1 > & { width: 64px; height: 64px; } }
+  .RenownPodium-plinth { height: 46px; margin-top: 10px; border-radius: 10px 10px 0 0; b { font-size: 38px; } .is-1 > & { height: 84px; b { font-size: 50px; } } .is-2 > & { height: 60px; } }
+  .RenownRising { flex-wrap: nowrap; margin: 16px -16px 2px; padding: 2px 16px 6px; overflow-x: auto; }
+  html:not(#x-hi) .RenownRising-title { flex: none; white-space: nowrap; }
+  .RenownRising-chips { flex-wrap: nowrap; }
+  html:not(#x-hi) .RenownRising-chip { flex: none; }
+  .RenownBoard-list { gap: 8px; margin-top: 12px; }
+  .RenownRow {
+    grid-template-columns: 26px minmax(0, 1fr) auto;
+    grid-template-areas: "pos member xp" "pos progress trend";
+    gap: 6px 10px;
+    padding: 12px;
+    border-radius: 14px;
   }
-  .RenownBoard-pos {
-    grid-area: pos;
+  .RenownRow-pos { grid-area: pos; align-self: start; padding-top: 9px; font-size: 17px; }
+  html:not(#x-hi) .RenownRow-member { grid-area: member; gap: 10px; }
+  .RenownRow-avatar { --size: 40px; font-size: 16px; }
+  .RenownRow-name { font-size: 15px; }
+  .RenownRow-tier > span { display: none; }
+  .RenownRow-progress { grid-area: progress; padding-left: 50px; }
+  .RenownBar { height: 6px; }
+  .RenownRow-next { margin-top: 4px; font-size: 11px; }
+  .RenownRow-trend { grid-area: trend; justify-self: end; align-self: start; padding: 3px 7px; font-size: 11px; &.is-quiet { padding: 3px 0; } }
+  .RenownRow-xp { grid-area: xp; align-self: start; b { font-size: 15px; } small { display: none; } }
+  .RenownYou {
+    bottom: 0;
+    grid-template-columns: 40px minmax(0, 1fr) auto;
+    grid-template-areas: "pos member link" "pos progress progress";
+    gap: 8px 10px;
+    margin: 16px -15px 0;
+    padding: 12px 16px 16px;
+    border-radius: 18px 18px 0 0;
   }
-  .RenownBoard-row .RenownMember {
-    grid-area: member;
-  }
-  .RenownBoard-standing {
-    grid-area: standing;
-    padding-left: 42px;
-  }
-  .RenownBoard-xp {
-    grid-area: xp;
-  }
-  // Too narrow for a second line beside the name: the climb XP stays in the tooltip.
-  .RenownBoard-climb {
-    display: none;
-  }
+  .RenownYou-pos { grid-area: pos; font-size: 16px; }
+  .RenownYou-member { grid-area: member; }
+  .RenownYou-avatar { --size: 36px; }
+  .RenownYou-progress { grid-area: progress; }
+  .RenownYou-line { margin-top: 5px; font-size: 12px; }
+  html:not(#x-hi) .RenownYou-link { grid-area: link; min-height: 40px; padding: 0 13px; font-size: 13px; }
 }
 
 // Profile tab

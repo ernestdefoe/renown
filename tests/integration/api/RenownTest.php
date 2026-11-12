@@ -805,6 +805,76 @@ class RenownTest extends TestCase
     }
 
     #[Test]
+    public function the_week_and_prestiged_boards_rows_carry_this_weeks_xp_and_the_risers_show(): void
+    {
+        $this->app();
+        $users = fn () => $this->database()->table('users');
+        $users()->where('id', self::BO)->update(['renown_xp' => 500, 'renown_lifetime_xp' => 500, 'renown_level' => 5]);
+        $users()->where('id', self::CY)->update(['renown_xp' => 300, 'renown_lifetime_xp' => 2 * Curve::xpFor(100) + 300, 'renown_level' => 3, 'renown_prestige' => 2]);
+        // Monday 2026-11-09 starts the week: CY's XP from the Saturday before counts for the month only.
+        $this->database()->table(Ledger::TABLE)->insert([
+            ['user_id' => self::BO, 'source' => 'reply', 'subject_id' => 1, 'actor_id' => 0, 'xp' => 70, 'prestige' => 0, 'day' => 1, 'backfilled' => false, 'created_at' => Carbon::now()->subHour()],
+            ['user_id' => self::CY, 'source' => 'reply', 'subject_id' => 2, 'actor_id' => 0, 'xp' => 30, 'prestige' => 2, 'day' => 1, 'backfilled' => false, 'created_at' => Carbon::parse('2026-11-07 10:00:00')],
+        ]);
+
+        [, $body] = $this->api('GET', '/renown/board?period=week', null);
+        $this->assertSame([self::BO], array_column($body['data'], 'id'));
+        $this->assertSame(70, $body['data'][0]['gained']);
+        $this->assertSame([], $body['rising'], 'the week board is its own list of risers');
+        $this->assertNull($body['me'], 'guests have no standing');
+
+        [, $body] = $this->api('GET', '/renown/board', null);
+        $this->assertSame([self::CY, self::BO], array_column($body['data'], 'id'));
+        $this->assertSame([0, 70], array_column($body['data'], 'week'));
+        $this->assertSame([self::BO], array_column($body['rising'], 'id'));
+        $this->assertSame(70, $body['rising'][0]['week']);
+
+        [, $body] = $this->api('GET', '/renown/board?period=prestiged', self::BO);
+        $this->assertSame([self::CY], array_column($body['data'], 'id'));
+        $this->assertSame(['position' => null, 'gap' => null], ['position' => $body['me']['position'], 'gap' => $body['me']['gap']], 'not prestiged, so not on this board');
+        $this->assertSame(70, $body['me']['week']);
+
+        // The same member may opt out: then they have no standing to show.
+        $this->api('PATCH', '/renown/me', self::BO, ['hidden' => true]);
+        [, $body] = $this->api('GET', '/renown/board', self::BO);
+        $this->assertNull($body['me']);
+        $this->assertSame([], $body['rising']);
+    }
+
+    #[Test]
+    public function a_member_below_the_first_page_sees_where_they_stand_and_how_far_to_the_next_place(): void
+    {
+        $this->app();
+        $rows = [];
+        foreach (range(0, 25) as $i) {
+            $rows[] = [
+                'username' => "climber$i", 'password' => '', 'email' => "climber$i@machine.local", 'is_email_confirmed' => 1, 'joined_at' => Carbon::now()->subDays(30),
+                'renown_xp' => 1000 + $i * 10, 'renown_lifetime_xp' => 1000 + $i * 10, 'renown_level' => 8,
+            ];
+        }
+        $this->database()->table('users')->insert($rows);
+        $this->database()->table('users')->where('id', self::BO)->update(['renown_xp' => 500, 'renown_lifetime_xp' => 500, 'renown_level' => 5]);
+        $this->database()->table('users')->where('id', self::CY)->update(['renown_xp' => 9000, 'renown_lifetime_xp' => 9000, 'renown_level' => 20]);
+        $this->database()->table('users')->where('id', self::AVA)->update(['renown_prestige' => 1, 'renown_xp' => 10, 'renown_lifetime_xp' => Curve::xpFor(100) + 10, 'renown_level' => 1]);
+
+        // 28 members on the board: AVA (prestiged), CY, 26 climbers, then BO.
+        [, $body] = $this->api('GET', '/renown/board', self::BO);
+        $this->assertCount(25, $body['data']);
+        $this->assertTrue($body['more']);
+        $this->assertSame(29, $body['me']['position']);
+        // The lowest climber has 1,000 XP; BO has 505 (500 + today's visit, earned by this request).
+        $this->assertSame(['xp' => 496, 'position' => 28, 'name' => null], $body['me']['gap']);
+
+        // On the page already: nothing more to work out.
+        [, $body] = $this->api('GET', '/renown/board', self::CY);
+        $this->assertNull($body['me']['position']);
+
+        // Nobody in the same prestige ahead: past AVA it takes a Prestige, not XP.
+        [, $body] = $this->api('GET', '/renown/board?period=prestiged', self::AVA);
+        $this->assertNull($body['me']['position'], 'AVA is the prestiged board\'s first row');
+    }
+
+    #[Test]
     public function the_profile_shows_sources_and_only_the_member_may_prestige(): void
     {
         $this->app();

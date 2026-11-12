@@ -70,10 +70,53 @@ ernestdefoe-renown:
       title: Leaderboard
       period_all: All time
       period_month: This month
+      period_week: This week
+      period_prestiged: Prestiged
+      kicker_all: Renown · All time
+      kicker_month: Renown · This month
+      kicker_week: Renown · This week
+      kicker_prestiged: Renown · Hall of Prestige
+      sub_all: Prestige first, then XP this climb
+      sub_month: XP earned since the 1st · days reset at midnight UTC
+      sub_week: XP earned since Monday · days reset at midnight UTC
+      sub_prestiged: Members who took Prestige, highest tier first
       xp: "{xp} XP"
       climb: "{xp} this climb"
       gained: "+{xp} XP"
-      empty: Nobody has earned XP yet.
+      lifetime: "{xp} XP lifetime"
+      this_week: "+{xp} this week"
+      week_short: "+{xp}"
+      quiet: Quiet this week
+      quiet_short: quiet
+      next: "{pct}% to {rank}"
+      max_eternal: Level 100 · Eternal
+      can_prestige: Level 100 · can Prestige
+      banked: "{xp} XP banked · can Prestige"
+      rising: Rising this week
+      open_spot: Open spot
+      open_hint_all: Any XP takes it
+      open_hint_month: Any XP this month takes it
+      open_hint_week: Any XP this week takes it
+      open_hint_prestiged: Taking Prestige takes it
+      you: You
+      my_renown: My Renown
+      pass: "{xp} XP to pass {name} for #{position}"
+      reach: "{xp} XP to reach #{position}"
+      next_prestige: Take Prestige to climb past the members ahead
+      earn_all: Earn XP to get on the board
+      earn_month: Earn XP this month to get on the board
+      earn_week: Earn XP this week to get on the board
+      earn_prestiged: Earn XP to get on the board
+      prestige_opens: "Prestige opens at Level 100: {levels} levels to go"
+      prestige_ready: You can take Prestige from your Renown tab
+      empty_title_all: The podium is empty
+      empty_all: Nobody has earned XP yet. Start a discussion, reply or like a post, and the first three names land here.
+      empty_title_month: A fresh month
+      empty_month: Nobody has earned XP since the 1st (midnight UTC). The first reply of the month takes the top spot.
+      empty_title_week: A fresh week
+      empty_week: Nobody has earned XP since Monday (midnight UTC). The first reply of the week takes the top spot.
+      empty_title_prestiged: Nobody has taken Prestige yet
+      empty_prestiged: Members who reach Level 100 can take Prestige and start a new climb with an emblem.
       more: Show more
     profile:
       tab: Renown
