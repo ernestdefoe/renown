@@ -641,6 +641,8 @@ html:not(#x-hi) .RenownYou-link {
     padding: 12px 16px 16px;
     border-radius: 18px 18px 0 0;
   }
+  // Above a bottom tab bar (FoF Mobile Tab / acpl's), not under it.
+  body:has(.MobileTab-bar, .MobileTab:not(.MobileTab--hidden)) .RenownYou { bottom: 60px; border-radius: 18px; }
   .RenownYou-pos { grid-area: pos; font-size: 16px; }
   .RenownYou-member { grid-area: member; }
   .RenownYou-avatar { --size: 36px; }
