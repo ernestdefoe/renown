@@ -3,7 +3,7 @@
 XP levels and prestige for Flarum 2. Members earn XP by taking part and climb **100 levels**: 20 ranks of five grades each, from Newcomer I to Immortal V, each with its own insignia. At Level 100 a member may take **Prestige**: start again at Newcomer I and earn a celestial emblem. Twenty tiers, then Eternal.
 
 - Rank and emblem beside every post and on user cards
-- "Ranked up" toast, a leaderboard (all time and this month), and a Renown tab on profiles: progress, lifetime XP, emblems earned, where the XP came from
+- "Ranked up" toast, a leaderboard (the top three on a podium; all time, this month, this week and the prestiged; the week's risers; and your own standing pinned at the bottom), and a Renown tab on profiles: progress, lifetime XP, emblems earned, where the XP came from
 - XP for replies, new discussions, likes received, best answers (FoF Best Answer or Answers), daily visits, Cadence streak days, Kudos received and Answers upvotes; every value editable
 - Anti-farming for new activity: daily cap, like limits, minimum reply length, a cooldown, excluded tags. XP is taken back when a post is hidden or deleted, a like removed or a best answer unmarked
 - On install, members get the XP their history earned (no caps for history); nobody is moved into Prestige automatically
@@ -14,7 +14,7 @@ XP levels and prestige for Flarum 2. Members earn XP by taking part and climb **
 
 ![The Renown tab: progress, emblems earned, where the XP came from](screenshots/02-profile.png)
 
-![The leaderboard](screenshots/03-board.png)
+![The leaderboard: the top three on a podium, the week's risers, progress to the next grade](screenshots/03-board.png)
 
 ![Prestige is always the member's choice](screenshots/04-prestige.png)
 
