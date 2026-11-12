@@ -532,15 +532,20 @@ html:not(#x-hi) .RenownRow-member {
   margin: 18px 0 6px;
 }
 
+.RenownYou-slot {
+  margin-top: 16px;
+}
 .RenownYou {
-  position: sticky;
-  bottom: 12px;
-  z-index: 3;
+  &.is-pinned {
+    position: fixed;
+    bottom: 12px;
+    z-index: 3;
+    animation: renown-rise 0.25s ease-out;
+  }
   display: grid;
   grid-template-columns: 56px minmax(0, 1.4fr) minmax(0, 1.6fr) auto;
   gap: 18px;
   align-items: center;
-  margin-top: 16px;
   padding: 14px 20px;
   border-radius: 18px;
   color: #fff;
@@ -583,6 +588,7 @@ html:not(#x-hi) .RenownYou-link {
 @media (prefers-reduced-motion: reduce) {
   .RenownStage-stars,
   .RenownPodium-spin,
+  .RenownYou.is-pinned,
   html:not(#x-hi) .RenownPodium-place { animation: none; }
   .RenownRow { transition: none; &:hover { transform: none; } }
 }
@@ -633,18 +639,16 @@ html:not(#x-hi) .RenownYou-link {
   .RenownRow-trend { grid-area: trend; justify-self: end; align-self: start; padding: 3px 7px; font-size: 11px; &.is-quiet { padding: 3px 0; } }
   .RenownRow-xp { grid-area: xp; align-self: start; b { font-size: 15px; } small { display: none; } }
   .RenownYou {
-    bottom: 0;
     grid-template-columns: 40px minmax(0, 1fr) auto;
     grid-template-areas: "pos member link" "pos progress progress";
     gap: 8px 10px;
-    margin: 16px -15px 0;
     padding: 12px 16px 16px;
-    border-radius: 18px 18px 0 0;
+    &.is-pinned { bottom: 8px; }
   }
   // Above a bottom tab bar (FoF Mobile Tab / acpl's), not under it.
   // One selector per bar: less.php can't parse a selector list inside :has().
-  body:has(.MobileTab-bar) .RenownYou,
-  body:has(.MobileTab:not(.MobileTab--hidden)) .RenownYou { bottom: 60px; border-radius: 18px; }
+  body:has(.MobileTab-bar) .RenownYou.is-pinned,
+  body:has(.MobileTab:not(.MobileTab--hidden)) .RenownYou.is-pinned { bottom: 68px; }
   .RenownYou-pos { grid-area: pos; font-size: 16px; }
   .RenownYou-member { grid-area: member; }
   .RenownYou-avatar { --size: 36px; }

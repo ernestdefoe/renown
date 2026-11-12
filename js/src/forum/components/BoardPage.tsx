@@ -1,4 +1,5 @@
 import app from 'flarum/forum/app';
+import Component from 'flarum/common/Component';
 import Page from 'flarum/common/components/Page';
 import Button from 'flarum/common/components/Button';
 import Link from 'flarum/common/components/Link';
@@ -49,6 +50,54 @@ function toNext(row: Row): { pct: number; label: Mithril.Children } {
   const banked = row.xp - xpFor(MAX_LEVEL);
   if (row.prestige >= ETERNAL) return { pct: 100, label: t('board.max_eternal') };
   return { pct: 100, label: banked > 0 ? t('board.banked', { xp: number(banked) }) : t('board.can_prestige') };
+}
+
+/**
+ * Keeps its child in view: in the flow where it is, pinned to the bottom of the
+ * window (over the board's column) while that spot is still below the fold.
+ * position: sticky can't do this: Flarum's layout (and themes) clip overflow.
+ */
+class Pin extends Component {
+  private observer?: IntersectionObserver;
+  private place = () => {
+    const slot = this.element as HTMLElement;
+    const bar = slot.firstElementChild as HTMLElement | null;
+    if (!bar?.classList.contains('is-pinned')) return;
+    const box = slot.getBoundingClientRect();
+    bar.style.left = box.left + 'px';
+    bar.style.width = box.width + 'px';
+  };
+
+  view(vnode: Mithril.Vnode) {
+    return <div className="RenownYou-slot">{vnode.children}</div>;
+  }
+
+  oncreate(vnode: Mithril.VnodeDOM) {
+    super.oncreate(vnode);
+    const slot = this.element as HTMLElement;
+    this.observer = new IntersectionObserver(([entry]) => {
+      const bar = slot.firstElementChild as HTMLElement | null;
+      if (!bar) return;
+      const pin = !entry.isIntersecting && entry.boundingClientRect.top > 0;
+      if (!pin) {
+        bar.classList.remove('is-pinned');
+        bar.style.left = bar.style.width = '';
+        slot.style.minHeight = bar.offsetHeight + 'px';
+        return;
+      }
+      slot.style.minHeight = bar.offsetHeight + 'px';
+      bar.classList.add('is-pinned');
+      this.place();
+    });
+    this.observer.observe(slot);
+    window.addEventListener('resize', this.place);
+  }
+
+  onremove(vnode: Mithril.VnodeDOM) {
+    super.onremove(vnode);
+    this.observer?.disconnect();
+    window.removeEventListener('resize', this.place);
+  }
 }
 
 /**
@@ -334,28 +383,30 @@ export default class BoardPage extends Page {
     }
 
     return (
-      <div className="RenownYou">
-        <span className="RenownYou-pos">{me.position ? '#' + me.position : '–'}</span>
-        <span className="RenownYou-member">
-          <Avatar user={avatarUser(me)} className="RenownYou-avatar" />
-          <span className="RenownYou-who">
-            <span className="RenownYou-name">{t('board.you')}</span>
-            <span className="RenownYou-rank">
-              {levelLabel(me.level)} ·{' '}
-              {this.periodic ? t('board.gained', { xp: number(me.gained || 0) }) : t('board.xp', { xp: number(me.lifetime) })}
+      <Pin>
+        <div className="RenownYou">
+          <span className="RenownYou-pos">{me.position ? '#' + me.position : '–'}</span>
+          <span className="RenownYou-member">
+            <Avatar user={avatarUser(me)} className="RenownYou-avatar" />
+            <span className="RenownYou-who">
+              <span className="RenownYou-name">{t('board.you')}</span>
+              <span className="RenownYou-rank">
+                {levelLabel(me.level)} ·{' '}
+                {this.periodic ? t('board.gained', { xp: number(me.gained || 0) }) : t('board.xp', { xp: number(me.lifetime) })}
+              </span>
             </span>
           </span>
-        </span>
-        <span className="RenownYou-progress">
-          <span className="RenownBar">
-            <span className="RenownBar-fill" style={{ width: next.pct + '%' }} />
+          <span className="RenownYou-progress">
+            <span className="RenownBar">
+              <span className="RenownBar-fill" style={{ width: next.pct + '%' }} />
+            </span>
+            <span className="RenownYou-line">{line}</span>
           </span>
-          <span className="RenownYou-line">{line}</span>
-        </span>
-        <Link className="RenownYou-link" href={memberUrl(me)}>
-          {t('board.my_renown')}
-        </Link>
-      </div>
+          <Link className="RenownYou-link" href={memberUrl(me)}>
+            {t('board.my_renown')}
+          </Link>
+        </div>
+      </Pin>
     );
   }
 
