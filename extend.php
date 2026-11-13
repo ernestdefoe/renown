@@ -114,6 +114,8 @@ return [
         ->default('ernestdefoe-renown.xp_kudos', 25)
         ->default('ernestdefoe-renown.xp_answer_upvote', 5)
         ->default('ernestdefoe-renown.xp_testimonial', 25)
+        ->default('ernestdefoe-renown.xp_corkboard_card', 5)
+        ->default('ernestdefoe-renown.cap_corkboard', 50)
         // Buzz: rank-ups are frequent, so off until the admin turns them on; prestige on.
         ->default('ernestdefoe-buzz.type.renown_rank', false)
         ->serializeToForum('renownNav', 'ernestdefoe-renown.nav', 'boolval')
@@ -179,6 +181,12 @@ return [
             (new Extend\Event())
                 ->listen(\ErnestDefoe\Testimonials\Event\Approved::class, [Integration\Testimonials::class, 'approved'])
                 ->listen(\ErnestDefoe\Testimonials\Event\Withdrawn::class, [Integration\Testimonials::class, 'withdrawn']),
+        ])
+        ->whenExtensionEnabled('ernestdefoe-corkboard', fn () => [
+            (new Extend\Event())
+                ->listen(\ErnestDefoe\Corkboard\Event\CardCompleted::class, [Integration\Corkboard::class, 'completed'])
+                ->listen(\ErnestDefoe\Corkboard\Event\CardReopened::class, [Integration\Corkboard::class, 'reopened'])
+                ->listen(\ErnestDefoe\Corkboard\Event\CardDeleted::class, [Integration\Corkboard::class, 'deleted']),
         ])
         ->whenExtensionEnabled('ernestdefoe-buzz', fn () => [
             (new \Ernestdefoe\Buzz\Extend\Buzz())

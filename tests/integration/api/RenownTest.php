@@ -1021,4 +1021,82 @@ class RenownTest extends TestCase
         [, $body] = $this->api('GET', '/users/'.self::BO, self::BO);
         $this->assertSame(3042, $body['data']['attributes']['renownSeen']);
     }
+
+    #[Test]
+    public function a_finished_card_pays_its_assignees_once_under_the_anti_farming_rules(): void
+    {
+        $c = $this->app()->getContainer();
+        $db = $c->make(\Illuminate\Database\ConnectionInterface::class);
+        $schema = $db->getSchemaBuilder();
+        // Temporary: a real CREATE TABLE commits MySQL's test transaction.
+        $schema->create('corkboard_boards', function ($t) {
+            $t->temporary();
+            $t->increments('id');
+            $t->unsignedInteger('owner_id')->nullable();
+        });
+        $schema->create('corkboard_members', function ($t) {
+            $t->temporary();
+            $t->increments('id');
+            $t->unsignedInteger('board_id');
+            $t->unsignedInteger('user_id')->nullable();
+            $t->unsignedInteger('group_id')->nullable();
+        });
+        $schema->create('corkboard_assignees', function ($t) {
+            $t->temporary();
+            $t->unsignedInteger('card_id');
+            $t->unsignedInteger('user_id');
+        });
+        $db->table('corkboard_boards')->insert([['id' => 1, 'owner_id' => self::AVA], ['id' => 2, 'owner_id' => self::AVA]]);
+        // Board 1 has a team; board 2 is Ava's alone.
+        $db->table('corkboard_members')->insert(['board_id' => 1, 'user_id' => self::BO]);
+
+        $corkboard = $c->make(\ErnestDefoe\Renown\Integration\Corkboard::class);
+        $card = fn (int $id, int $board, array $people, array $over = []) => (object) ($over + [
+            'id' => $id, 'board_id' => $board, 'user_id' => self::AVA, 'created_at' => Carbon::now()->subDay(),
+            'checklist_total' => 0, 'comment_count' => 0,
+        ]);
+        $assign = fn (int $card, array $people) => $db->table('corkboard_assignees')->insert(array_map(fn ($u) => ['card_id' => $card, 'user_id' => $u], $people));
+        $earned = fn (int $user) => (int) $db->table(Ledger::TABLE)->where('user_id', $user)->where('source', 'corkboard_card')->whereNull('revoked_at')->sum('xp');
+
+        // Split between two assignees: 5 → 2 each. Ava made it with no checklist or comment: she gets nothing.
+        $assign(10, [self::BO, self::CY]);
+        $corkboard->completed((object) ['card' => $card(10, 1, [])]);
+        $this->assertSame(2, $earned(self::BO));
+        $this->assertSame(2, $earned(self::CY));
+
+        $assign(11, [self::AVA]);
+        $corkboard->completed((object) ['card' => $card(11, 1, [])]);
+        $this->assertSame(0, $earned(self::AVA), 'her own card with no work on it');
+        $corkboard->completed((object) ['card' => $card(12, 1, [], ['checklist_total' => 3])]);
+        $assign(12, [self::AVA]);
+        $corkboard->completed((object) ['card' => $card(12, 1, [], ['checklist_total' => 3])]);
+        $this->assertSame(5, $earned(self::AVA), 'her own card with a checklist');
+
+        // Too new, or on a board nobody else is on: nothing.
+        $assign(13, [self::BO]);
+        $corkboard->completed((object) ['card' => $card(13, 1, [], ['created_at' => Carbon::now()->subMinutes(10)])]);
+        $assign(14, [self::BO]);
+        $corkboard->completed((object) ['card' => $card(14, 2, [])]);
+        $this->assertSame(2, $earned(self::BO));
+
+        // Reopen takes it back; finishing again restores exactly that, never twice.
+        $corkboard->reopened((object) ['card' => $card(10, 1, [])]);
+        $this->assertSame(0, $earned(self::BO));
+        $corkboard->completed((object) ['card' => $card(10, 1, [])]);
+        $corkboard->completed((object) ['card' => $card(10, 1, [])]);
+        $this->assertSame(2, $earned(self::BO));
+        $this->assertSame(1, $db->table(Ledger::TABLE)->where('user_id', self::BO)->where('source', 'corkboard_card')->where('subject_id', 10)->count());
+
+        // The daily card cap.
+        $c->make(\Flarum\Settings\SettingsRepositoryInterface::class)->set('ernestdefoe-renown.cap_corkboard', '4');
+        for ($id = 20; $id < 25; $id++) {
+            $assign($id, [self::MO]);
+            $corkboard->completed((object) ['card' => $card($id, 1, [])]);
+        }
+        $this->assertSame(4, $earned(self::MO));
+
+        // Deleted: gone for good.
+        $corkboard->deleted((object) ['card' => $card(10, 1, [])]);
+        $this->assertSame(0, $db->table(Ledger::TABLE)->where('source', 'corkboard_card')->where('subject_id', 10)->count());
+    }
 }

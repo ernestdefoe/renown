@@ -373,6 +373,13 @@ class Ledger
             }
         }
 
+        if ($source === 'corkboard_card') {
+            $cardCap = $this->settings->int('cap_corkboard', 50) * $multiplier;
+            if ($cardCap > 0) {
+                $xp = min($xp, max(0, $cardCap - (int) $today()->where('source', 'corkboard_card')->sum('xp')));
+            }
+        }
+
         $cap = $this->settings->int('cap_daily', 300) * $multiplier;
         if ($cap > 0 && $xp > 0) {
             $xp = min($xp, max(0, $cap - (int) $today()->where('source', '<>', 'admin')->sum('xp')));

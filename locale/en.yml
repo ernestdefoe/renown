@@ -147,6 +147,7 @@ ernestdefoe-renown:
       kudos: Kudos received
       answer_upvote: Upvotes received
       testimonial: Testimonials
+      corkboard_card: Finished cards (Corkboard)
       admin: Added by staff
     prestige:
       button: Take Prestige
@@ -203,6 +204,7 @@ ernestdefoe-renown:
       ernestdefoe-kudos: Kudos Wall
       ernestdefoe-answers: Answers
       ernestdefoe-testimonials: Testimonials
+      ernestdefoe-corkboard: Corkboard
     status:
       heading: Status
       replay_help: "When Renown is installed, every member gets the XP their past activity earned: no daily caps or cooldowns apply to history, only to activity after install. Nobody is moved into Prestige automatically: a member whose history is worth more than Level 100 sits at Level 100 (the top rank) with the extra XP banked, and Prestige is ready for them to take. The replay runs in the background (the scheduler, this page while it's open, or php flarum renown:rebuild). History means everything before Renown was installed: replaying it again never pays twice for activity since then, and posts that are hidden at the time earn nothing."
@@ -229,11 +231,14 @@ ernestdefoe-renown:
       kudos: Kudos received
       answer_upvote: Upvote received (Answers)
       testimonial: Testimonial approved (once per subject)
+      corkboard_card: Card finished, split among its assignees (Corkboard)
     rules:
       heading: Anti-farming
       help: These apply to activity after install, never to the history replay. A running Double XP event multiplies the caps too. 0 turns a rule off. Days reset at midnight UTC, for the caps and the daily visit.
       cap_daily: Daily XP cap
       cap_daily_help: The most XP a member can earn in a day, all sources together. Staff adjustments don't count.
+      cap_corkboard: Daily XP cap for finished cards
+      cap_corkboard_help: The most XP a member can earn in a day from Corkboard cards. A card pays only once, at least an hour after it was made, on a board with a team, and only when someone else made it or it has a checklist or a comment.
       cap_likes: Daily cap for likes received
       cap_likes_help: The most XP a member can earn from likes in a day.
       likes_per_giver: Likes counted per member per day

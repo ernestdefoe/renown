@@ -39,6 +39,7 @@ const SOURCES: { key: string; needs?: string }[] = [
   { key: 'kudos', needs: 'ernestdefoe-kudos' },
   { key: 'answer_upvote', needs: 'ernestdefoe-answers' },
   { key: 'testimonial', needs: 'ernestdefoe-testimonials' },
+  { key: 'corkboard_card', needs: 'ernestdefoe-corkboard' },
 ];
 
 const enabled = (id: string): boolean => isExtensionEnabled(id);
@@ -239,7 +240,14 @@ export default class RenownPage extends ExtensionPage {
         <h3>{t('rules.heading')}</h3>
         <p className="helpText">{t('rules.help')}</p>
         <div className="RenownAdmin-grid">
-          {['cap_daily', 'cap_likes', 'likes_per_giver', 'min_length', 'cooldown'].map((key) => (
+          {[
+            'cap_daily',
+            'cap_likes',
+            'likes_per_giver',
+            'min_length',
+            'cooldown',
+            ...(enabled('ernestdefoe-corkboard') ? ['cap_corkboard'] : []),
+          ].map((key) => (
             <div className="Form-group">
               <label for={'renown-' + key}>{t('rules.' + key)}</label>
               <input id={'renown-' + key} className="FormControl" type="number" min="0" max="100000" bidi={this.setting(KEY(key))} />
