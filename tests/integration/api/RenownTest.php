@@ -508,6 +508,8 @@ class RenownTest extends TestCase
             $table->string('source', 10);
             $table->string('subject_type', 12);
             $table->unsignedInteger('subject_id')->nullable();
+            $table->string('status', 10)->default('pending');
+            $table->boolean('hidden_by_author')->default(false);
         });
         $testimonials = $c->make(\ErnestDefoe\Renown\Integration\Testimonials::class);
         $write = function (string $type, ?int $subject, string $source = 'native') use ($db) {
@@ -515,8 +517,15 @@ class RenownTest extends TestCase
 
             return (object) ['id' => $id, 'user_id' => self::BO, 'source' => $source, 'subject_type' => $type, 'subject_id' => $subject, 'exists' => true];
         };
-        $approve = fn (object $t) => $testimonials->approved((object) ['testimonial' => $t, 'actor' => null]);
-        $withdraw = fn (object $t) => $testimonials->withdrawn((object) ['testimonial' => $t]);
+        // As Testimonials does it: the status is saved, then the event fires.
+        $approve = function (object $t) use ($db, $testimonials) {
+            $db->table('testimonials')->where('id', $t->id)->update(['status' => 'approved']);
+            $testimonials->approved((object) ['testimonial' => $t, 'actor' => null]);
+        };
+        $withdraw = function (object $t) use ($db, $testimonials) {
+            $db->table('testimonials')->where('id', $t->id)->update(['status' => 'declined']);
+            $testimonials->withdrawn((object) ['testimonial' => $t]);
+        };
         $earned = fn () => (int) $db->table(Ledger::TABLE)->where('user_id', self::BO)->where('source', 'testimonial')->whereNull('revoked_at')->sum('xp');
 
         $before = (int) $this->user(self::BO)->renown_lifetime_xp;
@@ -536,16 +545,13 @@ class RenownTest extends TestCase
         $approve($write('depot', 9, 'depot'));
         $this->assertSame(50, $earned(), 'a mirrored Depot review never earns');
 
-        $withdraw($community);
-        $this->assertSame(25, $earned(), 'declined: taken back');
-        $approve($second);
-        $this->assertSame(50, $earned(), 'the other one about it now counts');
-        $approve($community);
-        $this->assertSame(50, $earned(), 'approved again while the other counts: still once');
-
         $withdraw($second);
+        $withdraw($community);
+        $this->assertSame(25, $earned(), 'declined, nothing else live about it: taken back');
         $approve($community);
         $this->assertSame(50, $earned(), 'approved again: exactly what it earned comes back');
+        $approve($second);
+        $this->assertSame(50, $earned(), 'the other one approved while this one counts: still once');
 
         $db->table('testimonials')->where('id', $tag->id)->delete();
         $tag->exists = false;
@@ -578,6 +584,18 @@ class RenownTest extends TestCase
         $approve($again);
         $this->assertSame(50, $earned(), 'deleted, written again, approve/withdraw/approve: one award');
         $this->assertSame(50, (int) $this->user(self::BO)->renown_lifetime_xp - $before, 'the totals match the log');
+
+        // Found on dev: one that counts is withdrawn while another live one about the subject earned nothing.
+        $first = $write('tag', 8);
+        $approve($first);
+        $later = $write('tag', 8);
+        $approve($later);
+        $this->assertSame(75, $earned());
+        $withdraw($first);
+        $this->assertSame(75, $earned(), 'the live one takes over the award');
+        $this->assertSame(25, (int) $db->table(Ledger::TABLE)->where('source', 'testimonial')->where('subject_id', $later->id)->whereNull('revoked_at')->sum('xp'));
+        $approve($first);
+        $this->assertSame(75, $earned(), 'approved again while the other counts: still once');
         $this->assertSame(0, $db->table(Ledger::TABLE)->where('source', 'testimonial')->where('subject_id', $tag->id)->count());
     }
 
