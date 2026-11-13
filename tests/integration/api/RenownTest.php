@@ -552,6 +552,32 @@ class RenownTest extends TestCase
         $withdraw($tag);
         $this->assertSame(25, $earned(), 'deleted: gone for good');
         $this->assertSame(25, (int) $this->user(self::BO)->renown_lifetime_xp - $before, 'the totals follow');
+
+        // The loops the Command Center named: never more than the one award per subject.
+        $topic = $write('tag', 5);
+        $approve($topic);
+        $withdraw($topic);
+        $approve($topic);
+        $this->assertSame(50, $earned(), 'approve, withdraw, approve again: one award');
+        $withdraw($topic); // declined
+        $withdraw($topic); // the author edits it back into the queue
+        $approve($topic);
+        $approve($topic);
+        $this->assertSame(50, $earned(), 'approve, decline, edit, approve again: still one award');
+        $this->assertSame(1, $db->table(Ledger::TABLE)->where('source', 'testimonial')->where('subject_id', $topic->id)->count(), 'one row per testimonial');
+        $approve($write('tag', 5));
+        $this->assertSame(50, $earned(), 'a second one about the same subject: nothing');
+
+        // Deleted and written again: the first is gone for good, so the new one is the one award.
+        $db->table('testimonials')->where('id', $topic->id)->delete();
+        $topic->exists = false;
+        $withdraw($topic);
+        $again = $write('tag', 5);
+        $approve($again);
+        $withdraw($again);
+        $approve($again);
+        $this->assertSame(50, $earned(), 'deleted, written again, approve/withdraw/approve: one award');
+        $this->assertSame(50, (int) $this->user(self::BO)->renown_lifetime_xp - $before, 'the totals match the log');
         $this->assertSame(0, $db->table(Ledger::TABLE)->where('source', 'testimonial')->where('subject_id', $tag->id)->count());
     }
 
