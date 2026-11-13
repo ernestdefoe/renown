@@ -24,6 +24,7 @@ class Settings
         'streak' => 5,
         'kudos' => 25,
         'answer_upvote' => 5,
+        'testimonial' => 25,
     ];
 
     public function __construct(private readonly SettingsRepositoryInterface $settings)

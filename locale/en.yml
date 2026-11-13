@@ -146,6 +146,7 @@ ernestdefoe-renown:
       streak: Streak days
       kudos: Kudos received
       answer_upvote: Upvotes received
+      testimonial: Testimonials
       admin: Added by staff
     prestige:
       button: Take Prestige
@@ -201,6 +202,7 @@ ernestdefoe-renown:
       ernestdefoe-cadence: Cadence
       ernestdefoe-kudos: Kudos Wall
       ernestdefoe-answers: Answers
+      ernestdefoe-testimonials: Testimonials
     status:
       heading: Status
       replay_help: "When Renown is installed, every member gets the XP their past activity earned: no daily caps or cooldowns apply to history, only to activity after install. Nobody is moved into Prestige automatically: a member whose history is worth more than Level 100 sits at Level 100 (the top rank) with the extra XP banked, and Prestige is ready for them to take. The replay runs in the background (the scheduler, this page while it's open, or php flarum renown:rebuild). History means everything before Renown was installed: replaying it again never pays twice for activity since then, and posts that are hidden at the time earn nothing."
@@ -226,6 +228,7 @@ ernestdefoe-renown:
       streak: Cadence streak day
       kudos: Kudos received
       answer_upvote: Upvote received (Answers)
+      testimonial: Testimonial approved (once per subject)
     rules:
       heading: Anti-farming
       help: These apply to activity after install, never to the history replay. A running Double XP event multiplies the caps too. 0 turns a rule off. Days reset at midnight UTC, for the caps and the daily visit.

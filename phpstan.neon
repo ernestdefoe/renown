@@ -18,6 +18,6 @@ parameters:
         - src/Integration/Buzz.php
         - src/Integration/Kudos.php
     ignoreErrors:
-        - '#(ErnestDefoe\\Answers|Ernestdefoe\\Buzz|ErnestDefoe\\Kudos|Flarum\\Approval|FoF\\BestAnswer|FoF\\Badges)\\#'
+        - '#(ErnestDefoe\\Answers|Ernestdefoe\\Buzz|ErnestDefoe\\Kudos|ErnestDefoe\\Testimonials|Flarum\\Approval|FoF\\BestAnswer|FoF\\Badges)\\#'
         # flarum/tags adds the relation; only called after isEnabled('flarum-tags').
         - '#Call to an undefined method Flarum\\Discussion\\Discussion::tags\(\)#'

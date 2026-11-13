@@ -113,6 +113,7 @@ return [
         ->default('ernestdefoe-renown.xp_streak', 5)
         ->default('ernestdefoe-renown.xp_kudos', 25)
         ->default('ernestdefoe-renown.xp_answer_upvote', 5)
+        ->default('ernestdefoe-renown.xp_testimonial', 25)
         // Buzz: rank-ups are frequent, so off until the admin turns them on; prestige on.
         ->default('ernestdefoe-buzz.type.renown_rank', false)
         ->serializeToForum('renownNav', 'ernestdefoe-renown.nav', 'boolval')
@@ -173,6 +174,11 @@ return [
         ])
         ->whenExtensionEnabled('ernestdefoe-kudos', fn () => [
             (new Extend\Notification())->beforeSending(Integration\Kudos::class),
+        ])
+        ->whenExtensionEnabled('ernestdefoe-testimonials', fn () => [
+            (new Extend\Event())
+                ->listen(\ErnestDefoe\Testimonials\Event\Approved::class, [Integration\Testimonials::class, 'approved'])
+                ->listen(\ErnestDefoe\Testimonials\Event\Withdrawn::class, [Integration\Testimonials::class, 'withdrawn']),
         ])
         ->whenExtensionEnabled('ernestdefoe-buzz', fn () => [
             (new \Ernestdefoe\Buzz\Extend\Buzz())

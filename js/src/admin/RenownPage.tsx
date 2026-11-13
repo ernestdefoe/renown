@@ -38,6 +38,7 @@ const SOURCES: { key: string; needs?: string }[] = [
   { key: 'streak', needs: 'ernestdefoe-cadence' },
   { key: 'kudos', needs: 'ernestdefoe-kudos' },
   { key: 'answer_upvote', needs: 'ernestdefoe-answers' },
+  { key: 'testimonial', needs: 'ernestdefoe-testimonials' },
 ];
 
 const enabled = (id: string): boolean => isExtensionEnabled(id);

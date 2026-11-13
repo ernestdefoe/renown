@@ -496,6 +496,66 @@ class RenownTest extends TestCase
     }
 
     #[Test]
+    public function an_approved_testimonial_earns_once_per_subject_and_a_withdrawn_one_gives_it_back(): void
+    {
+        $c = $this->app()->getContainer();
+        $db = $c->make(\Illuminate\Database\ConnectionInterface::class);
+        // Temporary: a real CREATE TABLE commits MySQL's test transaction.
+        $db->getSchemaBuilder()->create('testimonials', function ($table) {
+            $table->temporary();
+            $table->increments('id');
+            $table->unsignedInteger('user_id');
+            $table->string('source', 10);
+            $table->string('subject_type', 12);
+            $table->unsignedInteger('subject_id')->nullable();
+        });
+        $testimonials = $c->make(\ErnestDefoe\Renown\Integration\Testimonials::class);
+        $write = function (string $type, ?int $subject, string $source = 'native') use ($db) {
+            $id = $db->table('testimonials')->insertGetId(['user_id' => self::BO, 'source' => $source, 'subject_type' => $type, 'subject_id' => $subject]);
+
+            return (object) ['id' => $id, 'user_id' => self::BO, 'source' => $source, 'subject_type' => $type, 'subject_id' => $subject, 'exists' => true];
+        };
+        $approve = fn (object $t) => $testimonials->approved((object) ['testimonial' => $t, 'actor' => null]);
+        $withdraw = fn (object $t) => $testimonials->withdrawn((object) ['testimonial' => $t]);
+        $earned = fn () => (int) $db->table(Ledger::TABLE)->where('user_id', self::BO)->where('source', 'testimonial')->whereNull('revoked_at')->sum('xp');
+
+        $before = (int) $this->user(self::BO)->renown_lifetime_xp;
+        $community = $write('community', null);
+        $approve($community);
+        $approve($community);
+        $this->assertSame(25, $earned(), 'approved twice (featured): earned once');
+
+        $second = $write('community', null);
+        $approve($second);
+        $this->assertSame(25, $earned(), 'a second one about the same subject earns nothing');
+
+        $tag = $write('tag', 3);
+        $approve($tag);
+        $this->assertSame(50, $earned(), 'another subject earns');
+
+        $approve($write('depot', 9, 'depot'));
+        $this->assertSame(50, $earned(), 'a mirrored Depot review never earns');
+
+        $withdraw($community);
+        $this->assertSame(25, $earned(), 'declined: taken back');
+        $approve($second);
+        $this->assertSame(50, $earned(), 'the other one about it now counts');
+        $approve($community);
+        $this->assertSame(50, $earned(), 'approved again while the other counts: still once');
+
+        $withdraw($second);
+        $approve($community);
+        $this->assertSame(50, $earned(), 'approved again: exactly what it earned comes back');
+
+        $db->table('testimonials')->where('id', $tag->id)->delete();
+        $tag->exists = false;
+        $withdraw($tag);
+        $this->assertSame(25, $earned(), 'deleted: gone for good');
+        $this->assertSame(25, (int) $this->user(self::BO)->renown_lifetime_xp - $before, 'the totals follow');
+        $this->assertSame(0, $db->table(Ledger::TABLE)->where('source', 'testimonial')->where('subject_id', $tag->id)->count());
+    }
+
+    #[Test]
     public function double_xp_doubles_the_xp_and_the_cap(): void
     {
         $this->prepareDatabase(['renown_boosts' => [
