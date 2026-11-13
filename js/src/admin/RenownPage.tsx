@@ -40,6 +40,8 @@ const SOURCES: { key: string; needs?: string }[] = [
   { key: 'answer_upvote', needs: 'ernestdefoe-answers' },
   { key: 'testimonial', needs: 'ernestdefoe-testimonials' },
   { key: 'corkboard_card', needs: 'ernestdefoe-corkboard' },
+  { key: 'panels_publish', needs: 'ernestdefoe-panels' },
+  { key: 'panels_read', needs: 'ernestdefoe-panels' },
 ];
 
 const enabled = (id: string): boolean => isExtensionEnabled(id);
@@ -247,6 +249,7 @@ export default class RenownPage extends ExtensionPage {
             'min_length',
             'cooldown',
             ...(enabled('ernestdefoe-corkboard') ? ['cap_corkboard'] : []),
+            ...(enabled('ernestdefoe-panels') ? ['cap_panels_read'] : []),
           ].map((key) => (
             <div className="Form-group">
               <label for={'renown-' + key}>{t('rules.' + key)}</label>

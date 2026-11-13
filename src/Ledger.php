@@ -373,6 +373,13 @@ class Ledger
             }
         }
 
+        if ($source === 'panels_read') {
+            $readCap = $this->settings->int('cap_panels_read', 20) * $multiplier;
+            if ($readCap > 0) {
+                $xp = min($xp, max(0, $readCap - (int) $today()->where('source', 'panels_read')->sum('xp')));
+            }
+        }
+
         if ($source === 'corkboard_card') {
             $cardCap = $this->settings->int('cap_corkboard', 50) * $multiplier;
             if ($cardCap > 0) {

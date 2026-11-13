@@ -1099,4 +1099,33 @@ class RenownTest extends TestCase
         $corkboard->deleted((object) ['card' => $card(10, 1, [])]);
         $this->assertSame(0, $db->table(Ledger::TABLE)->where('source', 'corkboard_card')->where('subject_id', 10)->count());
     }
+
+    #[Test]
+    public function panels_pays_for_publishing_once_and_for_reading_under_its_own_cap(): void
+    {
+        $c = $this->app()->getContainer();
+        $db = $c->make(\Illuminate\Database\ConnectionInterface::class);
+        $panels = $c->make(\ErnestDefoe\Renown\Integration\Panels::class);
+        $chapter = fn (int $id, int $uploader) => (object) ['id' => $id, 'user_id' => $uploader];
+        $earned = fn (int $user, string $source) => (int) $db->table(Ledger::TABLE)->where('user_id', $user)->where('source', $source)->whereNull('revoked_at')->sum('xp');
+
+        // Publishing: 15, once; taken down gives it back, restored brings back exactly that.
+        $panels->published((object) ['chapter' => $chapter(1, self::AVA)]);
+        $panels->published((object) ['chapter' => $chapter(1, self::AVA)]);
+        $this->assertSame(15, $earned(self::AVA, 'panels_publish'));
+        $panels->removed((object) ['chapter' => $chapter(1, self::AVA)]);
+        $this->assertSame(0, $earned(self::AVA, 'panels_publish'));
+        $panels->published((object) ['chapter' => $chapter(1, self::AVA)]);
+        $this->assertSame(15, $earned(self::AVA, 'panels_publish'));
+        $this->assertSame(1, $db->table(Ledger::TABLE)->where('source', 'panels_publish')->where('subject_id', 1)->count());
+
+        // Reading: 2 a chapter, never your own, 20 a day.
+        $bo = \Flarum\User\User::query()->find(self::BO);
+        $panels->read((object) ['chapter' => $chapter(1, self::BO), 'user' => $bo]);
+        $this->assertSame(0, $earned(self::BO, 'panels_read'), 'their own chapter');
+        for ($id = 10; $id < 25; $id++) {
+            $panels->read((object) ['chapter' => $chapter($id, self::AVA), 'user' => $bo]);
+        }
+        $this->assertSame(20, $earned(self::BO, 'panels_read'));
+    }
 }

@@ -26,6 +26,8 @@ class Settings
         'answer_upvote' => 5,
         'testimonial' => 25,
         'corkboard_card' => 5,
+        'panels_publish' => 15,
+        'panels_read' => 2,
     ];
 
     public function __construct(private readonly SettingsRepositoryInterface $settings)
