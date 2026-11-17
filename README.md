@@ -7,7 +7,7 @@ XP levels and prestige for Flarum 2. Members earn XP by taking part and climb **
 - XP for replies, new discussions, likes received, best answers (FoF Best Answer or Answers), daily visits, Cadence streak days, Kudos received, Answers upvotes, approved Testimonials (once per subject), finished Corkboard cards and Panels chapters published and read; every value editable
 - Anti-farming for new activity: daily cap, like limits, minimum reply length, a cooldown, excluded tags. XP is taken back when a post is hidden or deleted, a like removed or a best answer unmarked
 - On install, members get the XP their history earned (no caps for history); nobody is moved into Prestige automatically
-- Double XP events, rank name packs (Classic, Military, Fantasy, Sports), your own icons per rank and tier, group rewards per rank and per tier (optionally kept for good)
+- Double XP events, rank name packs (Classic, Military, Fantasy, Sports), your own icons per rank and tier, a color per rank family, group rewards per rank and per tier (optionally kept for good)
 - FoF Badges metrics (level, prestige tier, lifetime XP), Buzz broadcasts, staff XP adjustments with a reason, GDPR export
 
 ![Rank and emblem beside every post](screenshots/01-posts.png)

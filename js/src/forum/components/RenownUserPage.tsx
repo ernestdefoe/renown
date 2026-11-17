@@ -4,7 +4,7 @@ import Button from 'flarum/common/components/Button';
 import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
 import Switch from 'flarum/common/components/Switch';
 import type Mithril from 'mithril';
-import Insignia from '../../common/Insignia';
+import Insignia, { familyOf, fill } from '../../common/Insignia';
 import Emblem from '../../common/Emblem';
 import { ETERNAL, MAX_LEVEL, progress, rankOf, xpFor } from '../../common/curve';
 import { levelLabel, tierName } from '../../common/names';
@@ -92,8 +92,8 @@ export default class RenownUserPage extends UserPage {
             </div>
             <div className="RenownProgress-bar" role="progressbar" aria-valuemin="0" aria-valuemax={step.step} aria-valuenow={step.into}>
               <div
-                className={'RenownProgress-fill RenownProgress-fill--' + Math.ceil(rankOf(p.level) / 4)}
-                style={{ width: Math.min(100, (step.into / step.step) * 100) + '%' }}
+                className="RenownProgress-fill"
+                style={{ width: Math.min(100, (step.into / step.step) * 100) + '%', background: fill(familyOf(rankOf(p.level))) }}
               />
             </div>
           </div>

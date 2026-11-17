@@ -39,6 +39,9 @@ use Flarum\Settings\Event\Saved as SettingsSaved;
 use Flarum\User\User;
 use Illuminate\Console\Scheduling\Event as ScheduledEvent;
 
+// A rank family's colour goes into inline styles: only a #rrggbb value reaches the forum.
+$hex = fn ($value) => is_string($value) && preg_match('/^#[0-9a-f]{6}$/i', $value) ? strtolower($value) : null;
+
 return [
     (new Extend\Frontend('forum'))
         ->js(__DIR__.'/js/dist/forum.js')
@@ -119,10 +122,21 @@ return [
         ->default('ernestdefoe-renown.xp_panels_publish', 15)
         ->default('ernestdefoe-renown.xp_panels_read', 2)
         ->default('ernestdefoe-renown.cap_panels_read', 20)
+        // Each rank family's colour (the darker shade; the lighter one is drawn from it).
+        ->default('ernestdefoe-renown.color_bronze', '#8a5326')
+        ->default('ernestdefoe-renown.color_silver', '#7f8a98')
+        ->default('ernestdefoe-renown.color_gold', '#b8860b')
+        ->default('ernestdefoe-renown.color_crystal', '#16736c')
+        ->default('ernestdefoe-renown.color_royal', '#4b2e98')
         // Buzz: rank-ups are frequent, so off until the admin turns them on; prestige on.
         ->default('ernestdefoe-buzz.type.renown_rank', false)
         ->serializeToForum('renownNav', 'ernestdefoe-renown.nav', 'boolval')
-        ->serializeToForum('renownOnPosts', 'ernestdefoe-renown.on_posts', 'boolval'),
+        ->serializeToForum('renownOnPosts', 'ernestdefoe-renown.on_posts', 'boolval')
+        ->serializeToForum('renownColorBronze', 'ernestdefoe-renown.color_bronze', $hex)
+        ->serializeToForum('renownColorSilver', 'ernestdefoe-renown.color_silver', $hex)
+        ->serializeToForum('renownColorGold', 'ernestdefoe-renown.color_gold', $hex)
+        ->serializeToForum('renownColorCrystal', 'ernestdefoe-renown.color_crystal', $hex)
+        ->serializeToForum('renownColorRoyal', 'ernestdefoe-renown.color_royal', $hex),
 
     (new Extend\ServiceProvider())
         ->register(RenownServiceProvider::class)

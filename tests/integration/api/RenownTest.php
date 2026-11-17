@@ -1128,4 +1128,19 @@ class RenownTest extends TestCase
         }
         $this->assertSame(20, $earned(self::BO, 'panels_read'));
     }
+
+    // ---------------------------------------------------------------- rank colors
+
+    #[Test]
+    public function a_changed_rank_color_reaches_the_forum_and_bad_values_never_do(): void
+    {
+        $this->set('color_bronze', '#1E90FF');
+        $this->set('color_gold', 'red;background:url(x)');
+        [, $body] = $this->api('GET', '/', null);
+        $this->assertSame('#1e90ff', $body['data']['attributes']['renownColorBronze']);
+        $this->assertNull($body['data']['attributes']['renownColorGold']);
+        // Untouched families keep today's colors.
+        $this->assertSame('#7f8a98', $body['data']['attributes']['renownColorSilver']);
+        $this->assertSame('#4b2e98', $body['data']['attributes']['renownColorRoyal']);
+    }
 }

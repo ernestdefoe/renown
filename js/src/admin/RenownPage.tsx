@@ -7,7 +7,7 @@ import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
 import Form from 'flarum/common/components/Form';
 import isExtensionEnabled from 'flarum/admin/utils/isExtensionEnabled';
 import type Mithril from 'mithril';
-import Insignia from '../common/Insignia';
+import Insignia, { FAMILIES } from '../common/Insignia';
 import Emblem from '../common/Emblem';
 import { ETERNAL, RANKS, xpFor } from '../common/curve';
 
@@ -492,6 +492,13 @@ export default class RenownPage extends ExtensionPage {
         <h3>{t('display.heading')}</h3>
         {this.buildSettingComponent({ setting: KEY('on_posts'), type: 'boolean', label: tx('display.on_posts') })}
         {this.buildSettingComponent({ setting: KEY('nav'), type: 'boolean', label: tx('display.nav') })}
+        <h4>{t('display.colors')}</h4>
+        <p className="helpText">{t('display.colors_help')}</p>
+        <div className="RenownAdmin-colors">
+          {FAMILIES.map((family) =>
+            this.buildSettingComponent({ setting: KEY('color_' + family.key), type: 'color-preview', label: tx('display.family.' + family.key) })
+          )}
+        </div>
       </section>
     );
   }

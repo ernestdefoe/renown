@@ -7,7 +7,7 @@ import Avatar from 'flarum/common/components/Avatar';
 import LoadingIndicator from 'flarum/common/components/LoadingIndicator';
 import type Mithril from 'mithril';
 import { avatarUser, memberUrl, type Row } from './Member';
-import Insignia, { FAMILIES } from '../../common/Insignia';
+import Insignia, { familyOf } from '../../common/Insignia';
 import Emblem, { TIER_COLORS } from '../../common/Emblem';
 import { ETERNAL, MAX_LEVEL, progress, rankOf, xpFor } from '../../common/curve';
 import { levelLabel, tierName } from '../../common/names';
@@ -36,7 +36,7 @@ const PERIODS: Period[] = ['all', 'month', 'week', 'prestiged'];
 type Me = Row & { week: number; position: number | null; gap: { xp: number; position: number; name: string | null } | null };
 type Board = { data: Row[]; more: boolean; rising: Row[]; me: Me | null };
 
-const family = (level: number) => FAMILIES[Math.floor((rankOf(level) - 1) / 4)];
+const family = (level: number) => familyOf(rankOf(level));
 const ring = (row: Row): string | undefined => (row.prestige >= ETERNAL ? '#ffd43b' : row.prestige ? TIER_COLORS[row.prestige - 1] : undefined);
 const compact = (n: number): string => new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 1 }).format(n || 0);
 
