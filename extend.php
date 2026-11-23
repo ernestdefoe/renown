@@ -197,6 +197,9 @@ return [
         ->whenExtensionEnabled('ernestdefoe-kudos', fn () => [
             (new Extend\Notification())->beforeSending(Integration\Kudos::class),
         ])
+        // 🚨 Not in composer.json's optional-dependencies on purpose: Testimonials lists Renown
+        // in its own, and listing it back is a cycle that makes Flarum refuse to migrate or
+        // enable extensions ("Circular dependencies detected"). Its listing already orders the two.
         ->whenExtensionEnabled('ernestdefoe-testimonials', fn () => [
             (new Extend\Event())
                 ->listen(\ErnestDefoe\Testimonials\Event\Approved::class, [Integration\Testimonials::class, 'approved'])
