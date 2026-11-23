@@ -13,6 +13,9 @@ use ErnestDefoe\Renown\Settings;
  * - completing a course (100 by default), once per member and course;
  * - a certificate issued (50 by default), once per certificate.
  *
+ * Completion and certificate XP sits outside the daily cap (Ledger::OUTSIDE_DAILY_CAP):
+ * each pays only once, so a cap that clipped it would lose it for good.
+ *
  * One log row per award, unique on (member, source, subject), so a re-fired
  * event or leaving and re-joining a course never pays twice. Syllabus has no
  * unenroll or revoke event (certificates are never revoked), so nothing is

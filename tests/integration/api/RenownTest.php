@@ -1172,6 +1172,43 @@ class RenownTest extends TestCase
     }
 
     #[Test]
+    public function a_member_at_the_daily_cap_still_gets_a_course_completion_and_certificate_in_full(): void
+    {
+        $c = $this->app()->getContainer();
+        $db = $c->make(\Illuminate\Database\ConnectionInterface::class);
+        $ledger = $c->make(Ledger::class);
+        $syllabus = $c->make(\ErnestDefoe\Renown\Integration\Syllabus::class);
+        $ava = \Flarum\User\User::query()->find(self::AVA);
+        $course = (object) ['id' => 9];
+
+        // 300 earned today: at the cap.
+        for ($i = 1; $i <= 30; $i++) {
+            $ledger->award($ava, 'reply', 1000 + $i, 0, 10, ['cooldown' => false]);
+        }
+        $this->assertSame(300, (int) $db->table(Ledger::TABLE)->where('user_id', self::AVA)->sum('xp'));
+
+        $syllabus->enrolled((object) ['user' => $ava, 'course' => $course]);
+        $syllabus->completed((object) ['user' => $ava, 'course' => $course]);
+        $syllabus->certified((object) ['user' => $ava, 'course' => $course, 'certificate' => (object) ['id' => 4]]);
+
+        $row = fn (string $source) => $db->table(Ledger::TABLE)->where('user_id', self::AVA)->where('source', $source)->first();
+        $this->assertNull($row('syllabus_enroll'), 'joining a course stays under the cap');
+        $this->assertSame([100, 0], [(int) $row('syllabus_complete')->xp, (int) $row('syllabus_complete')->backfilled], 'in full, and live');
+        $this->assertSame(50, (int) $row('syllabus_certificate')->xp);
+        $this->assertSame(450, (int) $this->user(self::AVA)->renown_xp);
+
+        // ...and they don't use up the cap for anything else: completing a course first still
+        // leaves the whole 300 for the day's replies.
+        $bo = \Flarum\User\User::query()->find(self::BO);
+        $syllabus->completed((object) ['user' => $bo, 'course' => $course]);
+        $syllabus->certified((object) ['user' => $bo, 'course' => $course, 'certificate' => (object) ['id' => 5]]);
+        for ($i = 1; $i <= 31; $i++) {
+            $ledger->award($bo, 'reply', 3000 + $i, 0, 10, ['cooldown' => false]);
+        }
+        $this->assertSame(300, (int) $db->table(Ledger::TABLE)->where('user_id', self::BO)->where('source', 'reply')->sum('xp'));
+    }
+
+    #[Test]
     public function syllabus_events_are_only_heard_while_syllabus_is_enabled(): void
     {
         $events = $this->app()->getContainer()->make('events');

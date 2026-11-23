@@ -26,6 +26,13 @@ class Ledger
 {
     public const TABLE = 'renown_xp_log';
 
+    /**
+     * Sources the daily XP cap neither limits nor counts. A course is completed
+     * (and its certificate issued) exactly once, so a cap that clipped it would
+     * lose that XP for good; staff adjustments are never earned.
+     */
+    public const OUTSIDE_DAILY_CAP = ['admin', 'syllabus_complete', 'syllabus_certificate'];
+
     private const COLUMNS = ['id', 'renown_xp', 'renown_lifetime_xp', 'renown_level', 'renown_prestige'];
 
     public function __construct(
@@ -388,8 +395,8 @@ class Ledger
         }
 
         $cap = $this->settings->int('cap_daily', 300) * $multiplier;
-        if ($cap > 0 && $xp > 0) {
-            $xp = min($xp, max(0, $cap - (int) $today()->where('source', '<>', 'admin')->sum('xp')));
+        if ($cap > 0 && $xp > 0 && ! in_array($source, self::OUTSIDE_DAILY_CAP, true)) {
+            $xp = min($xp, max(0, $cap - (int) $today()->whereNotIn('source', self::OUTSIDE_DAILY_CAP)->sum('xp')));
         }
 
         return $xp;
