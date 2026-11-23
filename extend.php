@@ -122,6 +122,9 @@ return [
         ->default('ernestdefoe-renown.xp_panels_publish', 15)
         ->default('ernestdefoe-renown.xp_panels_read', 2)
         ->default('ernestdefoe-renown.cap_panels_read', 20)
+        ->default('ernestdefoe-renown.xp_syllabus_enroll', 10)
+        ->default('ernestdefoe-renown.xp_syllabus_complete', 100)
+        ->default('ernestdefoe-renown.xp_syllabus_certificate', 50)
         // Each rank family's colour (the darker shade; the lighter one is drawn from it).
         ->default('ernestdefoe-renown.color_bronze', '#8a5326')
         ->default('ernestdefoe-renown.color_silver', '#7f8a98')
@@ -210,6 +213,12 @@ return [
                 ->listen(\ErnestDefoe\Panels\Event\ChapterPublished::class, [Integration\Panels::class, 'published'])
                 ->listen(\ErnestDefoe\Panels\Event\ChapterRemoved::class, [Integration\Panels::class, 'removed'])
                 ->listen(\ErnestDefoe\Panels\Event\ChapterRead::class, [Integration\Panels::class, 'read']),
+        ])
+        ->whenExtensionEnabled('ernestdefoe-syllabus', fn () => [
+            (new Extend\Event())
+                ->listen(\Ernestdefoe\Syllabus\Event\CourseEnrolled::class, [Integration\Syllabus::class, 'enrolled'])
+                ->listen(\Ernestdefoe\Syllabus\Event\CourseCompleted::class, [Integration\Syllabus::class, 'completed'])
+                ->listen(\Ernestdefoe\Syllabus\Event\CertificateIssued::class, [Integration\Syllabus::class, 'certified']),
         ])
         ->whenExtensionEnabled('ernestdefoe-buzz', fn () => [
             (new \Ernestdefoe\Buzz\Extend\Buzz())

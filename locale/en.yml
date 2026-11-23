@@ -150,6 +150,9 @@ ernestdefoe-renown:
       corkboard_card: Finished cards (Corkboard)
       panels_publish: Chapters published (Panels)
       panels_read: Chapters read (Panels)
+      syllabus_enroll: Courses joined (Syllabus)
+      syllabus_complete: Courses completed (Syllabus)
+      syllabus_certificate: Certificates earned (Syllabus)
       admin: Added by staff
     prestige:
       button: Take Prestige
@@ -208,6 +211,7 @@ ernestdefoe-renown:
       ernestdefoe-testimonials: Testimonials
       ernestdefoe-corkboard: Corkboard
       ernestdefoe-panels: Panels
+      ernestdefoe-syllabus: Syllabus
     status:
       heading: Status
       replay_help: "When Renown is installed, every member gets the XP their past activity earned: no daily caps or cooldowns apply to history, only to activity after install. Nobody is moved into Prestige automatically: a member whose history is worth more than Level 100 sits at Level 100 (the top rank) with the extra XP banked, and Prestige is ready for them to take. The replay runs in the background (the scheduler, this page while it's open, or php flarum renown:rebuild). History means everything before Renown was installed: replaying it again never pays twice for activity since then, and posts that are hidden at the time earn nothing."
@@ -237,6 +241,9 @@ ernestdefoe-renown:
       corkboard_card: Card finished, split among its assignees (Corkboard)
       panels_publish: Chapter published, once per chapter (Panels)
       panels_read: Chapter finished, once per chapter, never your own (Panels)
+      syllabus_enroll: Course joined, once per course (Syllabus)
+      syllabus_complete: Course completed, once per course (Syllabus)
+      syllabus_certificate: Certificate issued, once per certificate (Syllabus)
     rules:
       heading: Anti-farming
       help: These apply to activity after install, never to the history replay. A running Double XP event multiplies the caps too. 0 turns a rule off. Days reset at midnight UTC, for the caps and the daily visit.

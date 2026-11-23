@@ -64,7 +64,11 @@
                 "ernestdefoe/answers",
                 "ernestdefoe/kudos",
                 "ernestdefoe/cadence",
-                "ernestdefoe/buzz"
+                "ernestdefoe/buzz",
+                "ernestdefoe/testimonials",
+                "ernestdefoe/corkboard",
+                "ernestdefoe/panels",
+                "ernestdefoe/syllabus"
             ]
         }
     },

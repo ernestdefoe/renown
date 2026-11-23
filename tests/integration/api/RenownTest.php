@@ -1129,6 +1129,57 @@ class RenownTest extends TestCase
         $this->assertSame(20, $earned(self::BO, 'panels_read'));
     }
 
+    #[Test]
+    public function syllabus_pays_each_award_once_on_its_own_line_and_0_turns_one_off(): void
+    {
+        $this->set('xp_syllabus_certificate', 0);
+
+        $c = $this->app()->getContainer();
+        $db = $c->make(\Illuminate\Database\ConnectionInterface::class);
+        $syllabus = $c->make(\ErnestDefoe\Renown\Integration\Syllabus::class);
+        $ava = \Flarum\User\User::query()->find(self::AVA);
+        $course = fn (int $id) => (object) ['id' => $id];
+        $earned = fn (string $source) => (int) $db->table(Ledger::TABLE)->where('user_id', self::AVA)->where('source', $source)->sum('xp');
+
+        // Enrolling: 10 a course, once; leaving and re-joining (Syllabus fires the event again) pays nothing.
+        $syllabus->enrolled((object) ['user' => $ava, 'course' => $course(7)]);
+        $syllabus->enrolled((object) ['user' => $ava, 'course' => $course(7)]);
+        $syllabus->enrolled((object) ['user' => $ava, 'course' => $course(8)]);
+        $this->assertSame(20, $earned('syllabus_enroll'));
+
+        // Completing: 100 a course, once, even if the event fires twice.
+        $syllabus->completed((object) ['user' => $ava, 'course' => $course(7)]);
+        $syllabus->completed((object) ['user' => $ava, 'course' => $course(7)]);
+        $this->assertSame(100, $earned('syllabus_complete'));
+
+        // The certificate award is set to 0: off.
+        $syllabus->certified((object) ['user' => $ava, 'course' => $course(7), 'certificate' => (object) ['id' => 3]]);
+        $this->assertSame(0, $earned('syllabus_certificate'));
+
+        $this->set('xp_syllabus_certificate', 50);
+        $syllabus->certified((object) ['user' => $ava, 'course' => $course(7), 'certificate' => (object) ['id' => 3]]);
+        $syllabus->certified((object) ['user' => $ava, 'course' => $course(7), 'certificate' => (object) ['id' => 3]]);
+        $this->assertSame(50, $earned('syllabus_certificate'), 'once per certificate');
+
+        // Each award is its own line in the member's XP history.
+        [$status, $body] = $this->api('GET', '/renown/users/'.self::AVA, self::AVA);
+        $this->assertSame(200, $status, json_encode($body));
+        // Highest first, as the profile lists them.
+        $this->assertSame(['syllabus_complete' => 100, 'syllabus_certificate' => 50, 'syllabus_enroll' => 20], array_intersect_key(
+            $body['data']['sources'],
+            array_flip(['syllabus_enroll', 'syllabus_complete', 'syllabus_certificate'])
+        ));
+    }
+
+    #[Test]
+    public function syllabus_events_are_only_heard_while_syllabus_is_enabled(): void
+    {
+        $events = $this->app()->getContainer()->make('events');
+
+        $this->assertFalse($events->hasListeners('Ernestdefoe\\Syllabus\\Event\\CourseEnrolled'));
+        $this->assertFalse($events->hasListeners('Ernestdefoe\\Syllabus\\Event\\CertificateIssued'));
+    }
+
     // ---------------------------------------------------------------- rank colors
 
     #[Test]

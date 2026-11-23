@@ -42,6 +42,9 @@ const SOURCES: { key: string; needs?: string }[] = [
   { key: 'corkboard_card', needs: 'ernestdefoe-corkboard' },
   { key: 'panels_publish', needs: 'ernestdefoe-panels' },
   { key: 'panels_read', needs: 'ernestdefoe-panels' },
+  { key: 'syllabus_enroll', needs: 'ernestdefoe-syllabus' },
+  { key: 'syllabus_complete', needs: 'ernestdefoe-syllabus' },
+  { key: 'syllabus_certificate', needs: 'ernestdefoe-syllabus' },
 ];
 
 const enabled = (id: string): boolean => isExtensionEnabled(id);

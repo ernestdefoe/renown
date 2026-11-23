@@ -28,6 +28,9 @@ class Settings
         'corkboard_card' => 5,
         'panels_publish' => 15,
         'panels_read' => 2,
+        'syllabus_enroll' => 10,
+        'syllabus_complete' => 100,
+        'syllabus_certificate' => 50,
     ];
 
     public function __construct(private readonly SettingsRepositoryInterface $settings)

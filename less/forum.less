@@ -796,9 +796,9 @@ html:not(#x-hi) .RenownYou-link {
 }
 .RenownSources-label {
   color: var(--muted-color);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  // Wraps rather than cutting off: "Courses completed (Syllabus)" doesn't fit 150px.
+  line-height: 1.3;
+  overflow-wrap: anywhere;
 }
 .RenownSources-bar {
   height: 8px;
